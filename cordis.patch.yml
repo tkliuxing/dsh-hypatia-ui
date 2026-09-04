@@ -1,0 +1,22 @@
+# dsh-hypatia-ui bundle patch: inserts the dual-face plugin row into the
+# profile roster. Applied as a profile bundle layer (the `dsh.bundle.patch`
+# manifest field) over dsh-base; install with
+#   dsh plugin --profile <name> add @tkliuxing/dsh-hypatia-ui              (registry)
+#   dsh plugin --profile <name> add link:/path/to/dsh-hypatia-ui (checkout)
+#
+# The row names the package once: the node half (exports ".") runs in the host
+# process and registers the /api/dsh-hypatia routes, while the `dsh.client`
+# declaration in package.json makes the browser half (exports "./client",
+# served at /plugins/@tkliuxing/dsh-hypatia-ui/client.js) load in the web GUI.
+#
+# Override config from a later layer (the profile's own cordis.patch.yml):
+#
+#   - id: hypatia-ui
+#     config:
+#       enabled: true              # master switch (routes + browser surfaces)
+#       announceToAgent: false     # add a system-prompt section describing the console
+#       binary: /abs/path/hypatia  # defaults to $HYPATIA_BIN, then `hypatia` on PATH
+#       timeoutMs: 20000           # per-CLI-invocation timeout
+- insert:
+    - id: hypatia-ui
+      name: '@tkliuxing/dsh-hypatia-ui'
