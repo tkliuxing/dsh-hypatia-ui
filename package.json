@@ -37,7 +37,8 @@
     "watch": "tsdown --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "cytoscape": "^3.34.2",
