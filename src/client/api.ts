@@ -14,7 +14,7 @@
 
 import {
   HYPATIA_API_PREFIX,
-  type DeleteResponse, type GraphNodeResponse, type Impact,
+  type BatchDeleteResponse, type DeleteResponse, type GraphNodeResponse, type Impact,
   type KnowledgePage, type ShelvesResponse,
 } from '../protocol.ts'
 
@@ -117,5 +117,25 @@ export function deleteKnowledge(
     method: 'DELETE',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ deleteRelations, acknowledgedName }),
+  })
+}
+
+/**
+ * Delete several records in one request.
+ * @param shelf - shelf name.
+ * @param names - record names; the Host deduplicates and caps them.
+ * @param deleteRelations - also remove the statements touching them.
+ * @param acknowledgedCount - the count the user retyped; the Host refuses a
+ *   mismatch with the number of distinct names.
+ * @returns the per-record receipt and the batch totals.
+ */
+export function deleteKnowledgeBatch(
+  shelf: string, names: readonly string[], deleteRelations: boolean, acknowledgedCount: number,
+): Promise<BatchDeleteResponse> {
+  const search = new URLSearchParams({ shelf })
+  return request(`/knowledge?${search.toString()}`, {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ names: [...names], deleteRelations, acknowledgedCount }),
   })
 }

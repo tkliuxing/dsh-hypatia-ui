@@ -15,7 +15,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import {
-  DEFAULT_PAGE_LIMIT, DEFAULT_SHELF, HYPATIA_API_PREFIX, MAX_PAGE_LIMIT,
+  DEFAULT_PAGE_LIMIT, DEFAULT_SHELF, HYPATIA_API_PREFIX, MAX_BATCH_DELETE, MAX_PAGE_LIMIT,
 } from '../protocol.ts'
 import { HypatiaCliError } from './hypatia-cli.ts'
 import { isTrustedRequest, readJsonObject, writeJson } from './http.ts'
@@ -63,6 +63,19 @@ function decodeName(segment: string): string | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Read the name list out of a batch-deletion body.
+ * @param value - the raw `names` member.
+ * @returns the deduplicated names, or null when the member is not a
+ *   non-empty array of non-empty strings within the batch cap.
+ */
+function decodeNames(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null
+  if (!value.every((item): item is string => typeof item === 'string' && item !== '')) return null
+  const names = [...new Set(value)]
+  return names.length === 0 || names.length > MAX_BATCH_DELETE ? null : names
 }
 
 function statusFor(error: unknown): number {
@@ -113,19 +126,20 @@ async function dispatch(
   const shelf = queryValue(query, 'shelf', DEFAULT_SHELF)
 
   if (path === '/health') {
-    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET')
+    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET, HEAD')
     writeJson(res, 200, { status: 'ready', version: await service.version() })
     return
   }
 
   if (path === '/shelves') {
-    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET')
+    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET, HEAD')
     writeJson(res, 200, { shelves: await service.shelves() })
     return
   }
 
   if (path === '/knowledge') {
-    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET')
+    if (method === 'DELETE') return deleteBatch(service, req, res, shelf)
+    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET, HEAD, DELETE')
     const search = queryValue(query, 'q')
     const tag = queryValue(query, 'tag')
     const scope = queryValue(query, 'scope')
@@ -136,7 +150,7 @@ async function dispatch(
 
   const graphMatch = /^\/graph\/node\/([^/]+)$/.exec(path)
   if (graphMatch !== null) {
-    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET')
+    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET, HEAD')
     const name = decodeName(graphMatch[1]!)
     if (name === null) {
       writeJson(res, 400, { error: 'Malformed knowledge name.' })
@@ -153,7 +167,7 @@ async function dispatch(
 
   const impactMatch = /^\/knowledge\/([^/]+)\/impact$/.exec(path)
   if (impactMatch !== null) {
-    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET')
+    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET, HEAD')
     const name = decodeName(impactMatch[1]!)
     if (name === null) {
       writeJson(res, 400, { error: 'Malformed knowledge name.' })
@@ -199,7 +213,40 @@ async function dispatch(
   writeJson(res, 404, { error: 'Unknown endpoint.' })
 }
 
-function methodNotAllowed(res: ServerResponse, allow: 'GET' | 'DELETE'): void {
-  res.setHeader('allow', allow === 'GET' ? 'GET, HEAD' : 'DELETE')
+/**
+ * Handle `DELETE /knowledge`: remove several records in one queued run.
+ *
+ * The retyped *count* plays the part the retyped *name* plays for a single
+ * record — it is checked here, not only in the dialog, so a caller that skips
+ * the dialog is refused the same way. The batch itself is not a transaction:
+ * a 200 carries a per-record receipt that may name records that were already
+ * gone or whose removal failed.
+ *
+ * @param service - the use-case face.
+ * @param req - the incoming request.
+ * @param res - the response to complete.
+ * @param shelf - the shelf named by the query string.
+ */
+async function deleteBatch(
+  service: HypatiaService, req: IncomingMessage, res: ServerResponse, shelf: string,
+): Promise<void> {
+  const body = await readJsonObject(req) ?? {}
+  const names = decodeNames(body['names'])
+  if (names === null) {
+    writeJson(res, 400, {
+      error: `Provide between 1 and ${MAX_BATCH_DELETE} knowledge names to delete.`,
+    })
+    return
+  }
+  if (body['acknowledgedCount'] !== names.length) {
+    writeJson(res, 400, { error: 'Enter the exact number of records to confirm deletion.' })
+    return
+  }
+
+  writeJson(res, 200, await service.deleteKnowledgeBatch(shelf, names, body['deleteRelations'] === true))
+}
+
+function methodNotAllowed(res: ServerResponse, allow: 'GET, HEAD' | 'GET, HEAD, DELETE' | 'DELETE'): void {
+  res.setHeader('allow', allow)
   writeJson(res, 405, { error: `Method not allowed; use ${allow}.` })
 }

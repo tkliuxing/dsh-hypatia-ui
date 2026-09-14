@@ -3,8 +3,9 @@
  *
  * The cases here are the ones where getting it wrong is invisible rather than
  * loud: a cursor that silently pages through a different query, a filtered
- * page that stops early, a dangling graph reference dropped from the map, and
- * a deletion that cascades when it was told not to.
+ * page that stops early, a dangling graph reference dropped from the map, a
+ * deletion that cascades when it was told not to, and a batch that abandons
+ * the records behind the one that failed.
  */
 
 import { describe, expect, it, vi } from 'vitest'
@@ -196,5 +197,99 @@ describe('deleteKnowledge', () => {
       service.deleteKnowledge('default', 'second', false),
     ])
     expect(order).toEqual(['read:first', 'delete:first', 'read:second', 'delete:second'])
+  })
+})
+
+describe('batch deletion', () => {
+  it('reports every record separately and steps over an absent one', async () => {
+    const deleted: string[] = []
+    const cli = stubCli({
+      knowledge: vi.fn(async (_shelf: string, name: string) => (name === 'gone' ? null : record(name))),
+      relationships: vi.fn().mockResolvedValue([]),
+      deleteKnowledge: vi.fn(async (_shelf: string, name: string) => { deleted.push(name) }),
+    })
+
+    const result = await new HypatiaService(cli).deleteKnowledgeBatch('default', ['a', 'gone', 'b'], false)
+
+    expect(deleted).toEqual(['a', 'b'])
+    expect(result.deletedCount).toBe(2)
+    expect(result.missingCount).toBe(1)
+    expect(result.failedCount).toBe(0)
+    expect(result.outcomes.map(outcome => outcome.status)).toEqual(['deleted', 'missing', 'deleted'])
+  })
+
+  it('keeps going past a record whose removal failed, and names it', async () => {
+    const deleted: string[] = []
+    const cli = stubCli({
+      knowledge: vi.fn(async (_shelf: string, name: string) => record(name)),
+      relationships: vi.fn().mockResolvedValue([]),
+      deleteKnowledge: vi.fn(async (_shelf: string, name: string) => {
+        if (name === 'locked') throw new Error('shelf is read-only')
+        deleted.push(name)
+      }),
+    })
+
+    const result = await new HypatiaService(cli).deleteKnowledgeBatch('default', ['a', 'locked', 'b'], false)
+
+    expect(deleted).toEqual(['a', 'b'])
+    expect(result.deletedCount).toBe(2)
+    expect(result.failedCount).toBe(1)
+    expect(result.outcomes[1]).toEqual({
+      name: 'locked', status: 'failed', deletedRelations: 0, retainedRelations: 0, error: 'shelf is read-only',
+    })
+  })
+
+  it('counts a statement joining two deleted records once', async () => {
+    const shared = relationship('a', 'r', 'b')
+    const removed = new Set<string>()
+    const cli = stubCli({
+      knowledge: vi.fn(async (_shelf: string, name: string) => record(name)),
+      // The impact is re-read per record, so the statement taken out with `a`
+      // is already gone by the time `b` is looked at.
+      relationships: vi.fn(async () => (removed.has('a r b') ? [] : [shared])),
+      deleteStatement: vi.fn(async () => { removed.add('a r b') }),
+      deleteKnowledge: vi.fn(),
+    })
+
+    const result = await new HypatiaService(cli).deleteKnowledgeBatch('default', ['a', 'b'], true)
+
+    expect(result.deletedRelations).toBe(1)
+    expect(cli.deleteStatement).toHaveBeenCalledTimes(1)
+  })
+
+  it('counts a retained statement between two deleted records once', async () => {
+    const cli = stubCli({
+      knowledge: vi.fn(async (_shelf: string, name: string) => record(name)),
+      relationships: vi.fn().mockResolvedValue([relationship('a', 'r', 'b')]),
+      deleteStatement: vi.fn(),
+      deleteKnowledge: vi.fn(),
+    })
+
+    const result = await new HypatiaService(cli).deleteKnowledgeBatch('default', ['a', 'b'], false)
+
+    expect(result.retainedRelations).toBe(1)
+    expect(result.outcomes.map(outcome => outcome.retainedRelations)).toEqual([1, 1])
+    expect(cli.deleteStatement).not.toHaveBeenCalled()
+  })
+
+  it('holds the mutation queue for the whole run', async () => {
+    const order: string[] = []
+    const cli = stubCli({
+      knowledge: vi.fn(async (_shelf: string, name: string) => {
+        order.push(`read:${name}`)
+        await new Promise(resolve => { setTimeout(resolve, 5) })
+        return record(name)
+      }),
+      relationships: vi.fn().mockResolvedValue([]),
+      deleteKnowledge: vi.fn(async (_shelf: string, name: string) => { order.push(`delete:${name}`) }),
+    })
+    const service = new HypatiaService(cli)
+
+    await Promise.all([
+      service.deleteKnowledgeBatch('default', ['a', 'b'], false),
+      service.deleteKnowledge('default', 'single', false),
+    ])
+
+    expect(order).toEqual(['read:a', 'delete:a', 'read:b', 'delete:b', 'read:single', 'delete:single'])
   })
 })

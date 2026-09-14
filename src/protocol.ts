@@ -122,6 +122,9 @@ export interface ShelvesResponse {
   shelves: Shelf[]
 }
 
+/** Largest number of records one batch deletion may carry. */
+export const MAX_BATCH_DELETE = 50
+
 /** Deletion receipt: what went, and what deliberately stayed. */
 export interface DeleteResponse {
   name: string
@@ -134,6 +137,48 @@ export interface DeleteRequest {
   /** Retyped record name; the Host refuses a mismatch. */
   acknowledgedName: string
   /** When true, the related statements go with the record. */
+  deleteRelations: boolean
+}
+
+/** How one record fared inside a batch deletion. */
+export type BatchDeleteStatus = 'deleted' | 'missing' | 'failed'
+
+/** One record's line in a batch receipt. */
+export interface BatchDeleteOutcome {
+  name: string
+  status: BatchDeleteStatus
+  deletedRelations: number
+  retainedRelations: number
+  /** The Host's diagnosis when `status` is `failed`; the empty string otherwise. */
+  error: string
+}
+
+/**
+ * Batch receipt. A batch is reported per record rather than as one verdict:
+ * a name that had already gone, and a name whose removal failed, each leave
+ * the rest of the batch alone and show up here by name.
+ */
+export interface BatchDeleteResponse {
+  outcomes: BatchDeleteOutcome[]
+  deletedCount: number
+  missingCount: number
+  failedCount: number
+  /** Distinct statements removed across the whole batch. */
+  deletedRelations: number
+  /** Distinct statements deliberately left behind across the whole batch. */
+  retainedRelations: number
+}
+
+/** The body a batch deletion request must carry. */
+export interface BatchDeleteRequest {
+  /** Record names to remove; duplicates and empty names are dropped. */
+  names: string[]
+  /**
+   * Retyped record count; the Host refuses a mismatch, the way the
+   * single-record route refuses a mismatched name.
+   */
+  acknowledgedCount: number
+  /** When true, the related statements go with the records. */
   deleteRelations: boolean
 }
 

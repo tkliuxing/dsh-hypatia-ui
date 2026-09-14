@@ -347,6 +347,20 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 }
 .dshhy-notice button { border: 0; background: transparent; display: grid; place-items: center; padding: 0; }
 
+/* ── selection band ─────────────────────────────────────────────────────── */
+
+.dshhy-selection {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 11px;
+  border: 1px solid var(--dsw-alias-state-error-secondary); border-radius: 6px;
+  background: var(--dsw-alias-interactive-bg-hover-danger);
+}
+.dshhy-selection-count {
+  flex: 1; min-width: 0;
+  color: var(--dsw-alias-label-secondary); font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.dshhy-selection .dshhy-button { min-height: 28px; }
+
 /* ── records ────────────────────────────────────────────────────────────── */
 
 .dshhy-records {
@@ -367,24 +381,49 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 }
 .dshhy-thead {
   position: sticky; top: 0; z-index: 1;
-  display: grid; grid-template-columns: minmax(0, 1fr) 156px 112px; gap: 12px;
-  padding: 9px 14px;
+  display: flex; align-items: center;
+  padding: 9px 14px 9px 0;
   border-bottom: 1px solid var(--dsw-alias-border-l1);
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-tertiary);
   font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
 }
+/* The header cells sit behind the same 44px gutter and 14px row padding the
+   rows use, so the columns line up although the row is a flex pair rather
+   than one grid. */
+.dshhy-thead-cells {
+  flex: 1; min-width: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) 156px 112px; gap: 12px;
+  padding: 0 14px;
+}
+/* The checkbox is a sibling of the row button, never a child: a checkbox
+   inside a <button> is invalid and unreachable by keyboard. */
+.dshhy-select {
+  flex: none; box-sizing: border-box;
+  width: 44px; padding-left: 14px;
+  display: flex; align-items: center;
+}
+.dshhy-select input {
+  width: 15px; height: 15px; margin: 0;
+  accent-color: var(--dsw-alias-brand-primary);
+}
+.dshhy-row-wrap {
+  display: flex; align-items: center;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+.dshhy-row-wrap:hover,
+.dshhy-row-wrap[data-current='true'],
+.dshhy-row-wrap[data-selected='true'] { background: var(--dsw-alias-interactive-bg-hover); }
+.dshhy-row-wrap[data-current='true'] { box-shadow: inset 3px 0 0 var(--dsw-alias-brand-primary); }
 .dshhy-row {
   display: grid; grid-template-columns: minmax(0, 1fr) 156px 112px; gap: 12px;
   align-items: center;
-  width: 100%; padding: 11px 14px;
-  border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1);
+  flex: 1; min-width: 0; padding: 11px 14px;
+  border: 0;
   background: transparent;
   color: var(--dsw-alias-label-primary);
   text-align: left;
 }
-.dshhy-row:hover, .dshhy-row[aria-current='true'] { background: var(--dsw-alias-interactive-bg-hover); }
-.dshhy-row[aria-current='true'] { box-shadow: inset 3px 0 0 var(--dsw-alias-brand-primary); }
 .dshhy-row-primary { min-width: 0; display: grid; gap: 4px; }
 .dshhy-row-primary strong {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -605,6 +644,15 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
   color: var(--dsw-alias-state-warn-label); background: var(--dsw-alias-state-warn-tertiary);
   font-size: 12px;
 }
+.dshhy-name-list {
+  max-height: 168px; overflow-y: auto;
+  margin: 8px 16px 0; padding: 6px 8px;
+  border: 1px solid var(--dsw-alias-border-l1); border-radius: 6px;
+  background: var(--dsw-alias-bg-base);
+  list-style: none;
+  color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1.6;
+}
+.dshhy-name-list li { overflow-wrap: anywhere; }
 .dshhy-check { display: flex; align-items: center; gap: 8px; margin: 14px 16px; color: var(--dsw-alias-label-secondary); font-size: 13px; }
 .dshhy-check input { width: 15px; height: 15px; accent-color: var(--dsw-alias-state-error-primary); }
 .dshhy-confirm { display: grid; gap: 6px; margin: 0 16px 14px; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
@@ -637,7 +685,10 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
   .dshhy-graph-inspector { border-left: 0; border-top: 1px solid var(--dsw-alias-border-l1); }
   .dshhy-search form { grid-template-columns: 1fr 1fr; }
   .dshhy-field { grid-column: 1 / -1; }
-  .dshhy-thead { display: none; }
+  /* The header keeps only its select-all: a narrow column has no room for the
+     column labels, but losing select-all would leave no way to check a page. */
+  .dshhy-thead-cells > span:not(:first-child) { display: none; }
+  .dshhy-thead-cells { grid-template-columns: minmax(0, 1fr); }
   .dshhy-row { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; }
   .dshhy-row-primary { grid-column: 1 / -1; }
   .dshhy-row time { text-align: right; }

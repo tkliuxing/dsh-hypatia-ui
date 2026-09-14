@@ -14,6 +14,11 @@
  *   its responsive rules are container queries (see `styles.ts`), and the
  *   inspector never scroll-jacks the page.
  *
+ * Multi-select is scoped to the page on screen: the checkbox column selects
+ * rows of the page being shown, and paging, filtering, refreshing, or
+ * switching shelves drops the selection rather than carrying an invisible one
+ * along into a deletion.
+ *
  * @module @tkliuxing/dsh-hypatia-ui/client/HypatiaConsole
  */
 
@@ -24,10 +29,11 @@ import {
 import {
   IconArchiveOutline20, IconBranchOutline16, IconChevronLeftOutline14,
   IconChevronRightOutline14, IconCloseOutline16, IconDatabaseOutline16,
-  IconLoadingOutline16, IconRefreshOutline16, IconSearchOutline16,
+  IconLoadingOutline16, IconRefreshOutline16, IconSearchOutline16, IconTrashOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { DEFAULT_SHELF, GLOBAL_SCOPE_TOKEN, type Impact, type Knowledge, type Shelf } from '../protocol.ts'
-import { deleteKnowledge, getImpact, getKnowledgePage, getShelves } from './api.ts'
+import { deleteKnowledge, deleteKnowledgeBatch, getImpact, getKnowledgePage, getShelves } from './api.ts'
+import { BatchDeleteDialog } from './BatchDeleteDialog.tsx'
 import type { PanelController } from './controller.ts'
 import { DeleteDialog } from './DeleteDialog.tsx'
 import { GraphWorkspace } from './GraphView.tsx'
@@ -113,7 +119,12 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
   const [focusHistory, setFocusHistory] = useState<string[]>([])
   const [graphFocus, setGraphFocus] = useState<string | null>(null)
 
+  /** Names checked on the current page; never outlives the page showing them. */
+  const [selection, setSelection] = useState<ReadonlySet<string>>(() => new Set())
+
   const [deleteTarget, setDeleteTarget] = useState<Impact | null>(null)
+  /** The frozen name list a bulk deletion is confirming, or null. */
+  const [batchTarget, setBatchTarget] = useState<string[] | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
 
   const inspectRequest = useRef(0)
@@ -134,6 +145,7 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
     setListLoading(true)
     setListError('')
     setItems([])
+    setSelection(new Set())
     setCurrentCursor(cursor)
     setNextCursor(null)
     setCursorHistory(nextHistory)
@@ -211,6 +223,28 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
     return { values: [...values].sort((left, right) => left.localeCompare(right)), hasGlobal }
   }, [items])
 
+  // Read in page order and filtered through the rows actually on screen, so
+  // a name the page no longer carries cannot reach the delete request.
+  const selectedNames = useMemo(
+    () => items.filter(item => selection.has(item.name)).map(item => item.name),
+    [items, selection],
+  )
+  const allSelected = items.length > 0 && selectedNames.length === items.length
+
+  const toggleRow = useCallback((name: string): void => {
+    setSelection(current => {
+      const next = new Set(current)
+      if (!next.delete(name)) next.add(name)
+      return next
+    })
+  }, [])
+
+  const toggleAll = useCallback((): void => {
+    setSelection(current => (
+      current.size === items.length && items.length > 0 ? new Set() : new Set(items.map(item => item.name))
+    ))
+  }, [items])
+
   const openImpact = useCallback(async (name: string): Promise<void> => {
     setSelectedName(name)
     setImpactLoading(true)
@@ -252,6 +286,7 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
 
   const selectShelf = useCallback((name: string): void => {
     setShelf(name)
+    setSelection(new Set())
     setSelectedName(null)
     setImpact(null)
     setGraphFocus(null)
@@ -286,6 +321,26 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
         ? t('delete.done.cascade', { name: result.name, count: result.deletedRelations })
         : t('delete.done.retained', { name: result.name, count: result.retainedRelations }),
     })
+    refresh()
+  }
+
+  async function confirmBatchDelete(deleteRelations: boolean, acknowledgedCount: number): Promise<void> {
+    if (batchTarget === null) return
+    const result = await deleteKnowledgeBatch(shelf, batchTarget, deleteRelations, acknowledgedCount)
+    setBatchTarget(null)
+    setSelectedName(null)
+    setImpact(null)
+    // A batch that ran is reported even when parts of it did not: the counts
+    // are what happened, and a failure turns the notice into an error one.
+    const summary = t('batch.done', {
+      count: result.deletedCount,
+      deleted: result.deletedRelations,
+      retained: result.retainedRelations,
+    })
+    const issues = result.missingCount + result.failedCount > 0
+      ? ` ${t('batch.done.issues', { missing: result.missingCount, failed: result.failedCount })}`
+      : ''
+    setNotice({ tone: result.failedCount > 0 ? 'error' : 'success', text: summary + issues })
     refresh()
   }
 
@@ -422,13 +477,48 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
           </div>
         ) : null}
 
+        {view === 'records' && selectedNames.length > 0 ? (
+          <div className="dshhy-selection" role="group" aria-label={t('select.count', { count: selectedNames.length })}>
+            <span className="dshhy-selection-count">{t('select.count', { count: selectedNames.length })}</span>
+            <button
+              type="button" className="dshhy-text-button"
+              onClick={() => { setSelection(new Set()) }}
+            >
+              {t('select.clear')}
+            </button>
+            <button
+              type="button" className="dshhy-button dshhy-danger"
+              onClick={() => { setBatchTarget(selectedNames) }}
+            >
+              <IconTrashOutline16 size={14} /> {t('select.delete')}
+            </button>
+          </div>
+        ) : null}
+
         {view === 'records' ? (
           <section className="dshhy-records">
             <div ref={listPanelRef} className="dshhy-list">
               <div className="dshhy-thead">
-                <span>{t('list.column.entry')}</span>
-                <span>{t('list.column.context')}</span>
-                <span>{t('list.column.created')}</span>
+                <label className="dshhy-select">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    disabled={items.length === 0}
+                    // Partially selected pages read as such to assistive tech;
+                    // `indeterminate` is a property, not an attribute.
+                    ref={node => {
+                      if (node !== null) node.indeterminate = selectedNames.length > 0 && !allSelected
+                    }}
+                    onChange={toggleAll}
+                    aria-label={t('select.all')}
+                    title={t('select.all')}
+                  />
+                </label>
+                <span className="dshhy-thead-cells">
+                  <span>{t('list.column.entry')}</span>
+                  <span>{t('list.column.context')}</span>
+                  <span>{t('list.column.created')}</span>
+                </span>
               </div>
               {listError !== '' && items.length === 0 ? (
                 <div className="dshhy-blank dshhy-error">
@@ -446,31 +536,45 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
                 </div>
               ) : null}
               {items.map(item => (
-                <button
-                  key={item.name} type="button" className="dshhy-row"
-                  aria-current={selectedName === item.name}
-                  onClick={() => { void openImpact(item.name) }}
+                <div
+                  key={item.name} className="dshhy-row-wrap"
+                  data-current={selectedName === item.name}
+                  data-selected={selection.has(item.name)}
                 >
-                  <span className="dshhy-row-primary">
-                    <strong>{item.name}</strong>
-                    <small>{excerpt(item.content.data)}</small>
-                  </span>
-                  <span className="dshhy-row-context">
-                    <span className="dshhy-chips-inline">
-                      {item.content.tags.slice(0, 3).map(tag => (
-                        <em key={tag} className="dshhy-chip dshhy-chip-tag">{tag}</em>
-                      ))}
+                  <label className="dshhy-select">
+                    <input
+                      type="checkbox"
+                      checked={selection.has(item.name)}
+                      onChange={() => { toggleRow(item.name) }}
+                      aria-label={t('select.row', { name: item.name })}
+                    />
+                  </label>
+                  <button
+                    type="button" className="dshhy-row"
+                    aria-current={selectedName === item.name}
+                    onClick={() => { void openImpact(item.name) }}
+                  >
+                    <span className="dshhy-row-primary">
+                      <strong>{item.name}</strong>
+                      <small>{excerpt(item.content.data)}</small>
                     </span>
-                    <span className="dshhy-chips-inline">
-                      {item.content.scopes.slice(0, 2).map(itemScope => (
-                        <i key={itemScope === '' ? '__global__' : itemScope} className="dshhy-chip dshhy-chip-scope">
-                          {scopeLabel(itemScope)}
-                        </i>
-                      ))}
+                    <span className="dshhy-row-context">
+                      <span className="dshhy-chips-inline">
+                        {item.content.tags.slice(0, 3).map(tag => (
+                          <em key={tag} className="dshhy-chip dshhy-chip-tag">{tag}</em>
+                        ))}
+                      </span>
+                      <span className="dshhy-chips-inline">
+                        {item.content.scopes.slice(0, 2).map(itemScope => (
+                          <i key={itemScope === '' ? '__global__' : itemScope} className="dshhy-chip dshhy-chip-scope">
+                            {scopeLabel(itemScope)}
+                          </i>
+                        ))}
+                      </span>
                     </span>
-                  </span>
-                  <time dateTime={item.createdAt}>{dateLabel(item.createdAt)}</time>
-                </button>
+                    <time dateTime={item.createdAt}>{dateLabel(item.createdAt)}</time>
+                  </button>
+                </div>
               ))}
               {listError !== '' && items.length > 0 ? <p className="dshhy-inline-error">{listError}</p> : null}
             </div>
@@ -507,6 +611,15 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
           />
         )}
       </main>
+
+      {batchTarget !== null ? (
+        <BatchDeleteDialog
+          names={batchTarget}
+          onCancel={() => { setBatchTarget(null) }}
+          onConfirm={confirmBatchDelete}
+          onFailed={message => { setNotice({ tone: 'error', text: message }) }}
+        />
+      ) : null}
 
       {deleteTarget !== null ? (
         <DeleteDialog

@@ -47,6 +47,14 @@ needs the other.
 - **Deletion** — previews the impact, requires the exact record name retyped,
   and only removes related statements when explicitly asked. **Hypatia's own
   `knowledge-delete` does not cascade to statements, and neither does this.**
+- **Bulk deletion** — a checkbox column on the record list, select-all for the
+  page on screen, and one dialog that lists exactly what will go and asks for
+  the number of records to be retyped. Up to 50 records per batch. A batch is
+  **not a transaction**: the records go one at a time behind a single queue
+  slot, one that is already gone or that fails is stepped over rather than
+  aborting the rest, and the receipt names every such record. Selection is
+  scoped to the page — paging, filtering, refreshing, or switching shelves
+  clears it, so nothing invisible is ever included in a deletion.
 
 ## Configuration
 
@@ -95,7 +103,9 @@ A page on another origin fails the second check even from the same machine, and
 a bare `curl` — which sends neither `Origin` nor `Sec-Fetch-Site` — is refused.
 
 The retyped-name confirmation is re-checked on the Host, so a caller that skips
-the dialog is refused the same way the dialog refuses it.
+the dialog is refused the same way the dialog refuses it. A bulk deletion is
+confirmed the same way, by the retyped record *count*: the Host deduplicates
+the name list, caps it, and refuses a count that does not match it.
 
 ## Development
 

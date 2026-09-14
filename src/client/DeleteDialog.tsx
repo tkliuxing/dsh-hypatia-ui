@@ -26,20 +26,21 @@ import type { Impact } from '../protocol.ts'
 import { t, type HypatiaKey } from './locales.ts'
 
 /**
- * Render a template around its `{name}` placeholder, wrapping the value in an
- * element instead of splicing it into the string. Reading the template
- * uninterpolated (no params) keeps the placeholder intact, so the emphasis
- * lands wherever each language puts the name — the zh and en sentences order
- * it differently.
- * @param props - the message key, the value, and the wrapper to emphasize it with.
+ * Render a template around one placeholder, wrapping the value in an element
+ * instead of splicing it into the string. Reading the template uninterpolated
+ * (no params) keeps the placeholder intact, so the emphasis lands wherever
+ * each language puts the value — the zh and en sentences order it differently.
+ * @param props - the message key, the value, the wrapper to emphasize it
+ *   with, and the placeholder to replace (`{name}` unless given).
  * @returns the sentence with the value emphasized in place.
  */
-function Templated({ messageKey, value, as: Wrapper }: {
+export function Templated({ messageKey, value, as: Wrapper, placeholder = '{name}' }: {
   messageKey: HypatiaKey
   value: string
   as: 'strong' | 'code'
+  placeholder?: string
 }): React.JSX.Element {
-  const [before = '', after = ''] = t(messageKey).split('{name}')
+  const [before = '', after = ''] = t(messageKey).split(placeholder)
   return <>{before}<Wrapper>{value}</Wrapper>{after}</>
 }
 

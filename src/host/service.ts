@@ -16,14 +16,20 @@
  * - **Writes are serialized among themselves.** `HypatiaCli` already
  *   serializes every invocation, but a deletion is a *read-then-write*
  *   sequence; `queueMutation` keeps two concurrent deletions from
- *   interleaving their impact reads and removals.
+ *   interleaving their impact reads and removals. A batch queues *once* for
+ *   the whole run, so nothing else deletes between two of its records.
+ * - **A batch is not a transaction.** Hypatia has no multi-record write, so a
+ *   batch is a loop, and one record's absence or failure must not abandon the
+ *   records behind it. Every record gets its own line in the receipt, and the
+ *   loop keeps going.
  *
  * @module @tkliuxing/dsh-hypatia-ui/host/service
  */
 
 import {
   DEFAULT_SHELF, GLOBAL_SCOPE_TOKEN,
-  type DeleteResponse, type GraphEdge, type GraphNode, type GraphNodeResponse,
+  type BatchDeleteOutcome, type BatchDeleteResponse, type DeleteResponse,
+  type GraphEdge, type GraphNode, type GraphNodeResponse,
   type Impact, type Knowledge, type KnowledgePage, type Relationship, type Shelf,
 } from '../protocol.ts'
 import { buildKnowledgeQuery, filterKnowledge, HypatiaCli, normalizeKnowledge } from './hypatia-cli.ts'
@@ -94,6 +100,10 @@ export function decodeCursor(value: string, expected: CursorQuery): number {
   } catch {
     throw new RequestValidationError('The list cursor is invalid or belongs to a different query.')
   }
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unexpected server error.'
 }
 
 /** Stable edge identity; the components are escaped so none can contain the separator. */
@@ -295,6 +305,75 @@ export class HypatiaService {
       return {
         deletedRelations,
         retainedRelations: deleteRelations ? 0 : impact.relationships.length,
+      }
+    })
+  }
+
+  /**
+   * Delete several records in one queued run.
+   *
+   * The records are removed one at a time, in the order given, and a record
+   * that is already gone or whose removal fails is recorded and stepped over
+   * rather than aborting the rest. Each record's impact is re-read
+   * immediately before its own removal, so a statement already taken out with
+   * an earlier record of the same batch is neither deleted twice nor counted
+   * twice; the two totals count *distinct* statements.
+   *
+   * @param shelf - shelf name.
+   * @param names - record names, already deduplicated by the caller.
+   * @param deleteRelations - when true, remove each record's statements first.
+   * @returns one line per requested name, plus the batch totals.
+   */
+  deleteKnowledgeBatch(shelf: string, names: readonly string[], deleteRelations: boolean): Promise<BatchDeleteResponse> {
+    return this.queueMutation(async () => {
+      const outcomes: BatchDeleteOutcome[] = []
+      const deletedStatements = new Set<string>()
+      const retainedStatements = new Set<string>()
+
+      for (const name of names) {
+        try {
+          const impact = await this.impact(shelf, name)
+          if (impact === null) {
+            outcomes.push({ name, status: 'missing', deletedRelations: 0, retainedRelations: 0, error: '' })
+            continue
+          }
+
+          let deletedRelations = 0
+          for (const relationship of impact.relationships) {
+            if (!deleteRelations) {
+              retainedStatements.add(graphEdgeId(relationship))
+              continue
+            }
+            await this.cli.deleteStatement(shelf, relationship)
+            deletedStatements.add(graphEdgeId(relationship))
+            deletedRelations += 1
+          }
+          await this.cli.deleteKnowledge(shelf, name)
+
+          outcomes.push({
+            name,
+            status: 'deleted',
+            deletedRelations,
+            retainedRelations: deleteRelations ? 0 : impact.relationships.length,
+            error: '',
+          })
+        } catch (error: unknown) {
+          // The record is left as it stands — possibly with some of its
+          // statements already gone — and the batch continues; the receipt
+          // names it so the user can look at that one record.
+          outcomes.push({
+            name, status: 'failed', deletedRelations: 0, retainedRelations: 0, error: describeError(error),
+          })
+        }
+      }
+
+      return {
+        outcomes,
+        deletedCount: outcomes.filter(outcome => outcome.status === 'deleted').length,
+        missingCount: outcomes.filter(outcome => outcome.status === 'missing').length,
+        failedCount: outcomes.filter(outcome => outcome.status === 'failed').length,
+        deletedRelations: deletedStatements.size,
+        retainedRelations: retainedStatements.size,
       }
     })
   }
