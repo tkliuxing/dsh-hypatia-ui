@@ -1,6 +1,6 @@
 {
   "name": "@tkliuxing/dsh-hypatia-ui",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Hypatia knowledge console for the DSH Web GUI: a sidebar entry that opens shelf browsing, JSE search, record inspection, a local relationship graph, and guarded deletion in the main column.",
   "type": "module",
   "main": "lib/index.js",
