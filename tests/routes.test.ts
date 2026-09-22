@@ -1,5 +1,5 @@
 /**
- * The batch-deletion route's own guards.
+ * The batch-deletion route's own guards, and the scope roster route.
  *
  * The dialog is not the boundary — the Host is. A caller that skips the
  * console must be refused for the same reasons the console refuses it: a name
@@ -101,5 +101,25 @@ describe('DELETE /knowledge', () => {
   it('answers 405 for a method the collection route does not serve', async () => {
     const result = await call({}, requestFor('POST', '/knowledge'))
     expect(result.status).toBe(405)
+  })
+})
+
+describe('GET /scopes', () => {
+  it("answers the named shelf's roster", async () => {
+    const scopes = vi.fn().mockResolvedValue({ supported: true, scopes: ['', 'hypatia'] })
+    const result = await call({ scopes }, requestFor('GET', '/scopes?shelf=work'))
+
+    expect(result).toEqual({ status: 200, body: { supported: true, scopes: ['', 'hypatia'] } })
+    expect(scopes).toHaveBeenCalledWith('work')
+  })
+
+  it('reads the default shelf when none is named', async () => {
+    const scopes = vi.fn().mockResolvedValue({ supported: false, scopes: [] })
+    await call({ scopes }, requestFor('GET', '/scopes'))
+    expect(scopes).toHaveBeenCalledWith('default')
+  })
+
+  it('answers 405 for a method the route does not serve', async () => {
+    expect((await call({}, requestFor('POST', '/scopes'))).status).toBe(405)
   })
 })

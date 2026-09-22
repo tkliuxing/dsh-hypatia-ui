@@ -32,13 +32,16 @@ import {
   IconLoadingOutline16, IconRefreshOutline16, IconSearchOutline16, IconTrashOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { DEFAULT_SHELF, GLOBAL_SCOPE_TOKEN, type Impact, type Knowledge, type Shelf } from '../protocol.ts'
-import { deleteKnowledge, deleteKnowledgeBatch, getImpact, getKnowledgePage, getShelves } from './api.ts'
+import {
+  deleteKnowledge, deleteKnowledgeBatch, getImpact, getKnowledgePage, getScopes, getShelves,
+} from './api.ts'
 import { BatchDeleteDialog } from './BatchDeleteDialog.tsx'
 import type { PanelController } from './controller.ts'
 import { DeleteDialog } from './DeleteDialog.tsx'
 import { GraphWorkspace } from './GraphView.tsx'
 import { Inspector } from './Inspector.tsx'
 import { t } from './locales.ts'
+import { scopeOptions, type ScopeRoster } from './scope-options.ts'
 
 /** Records per page. */
 const PAGE_LIMIT = 50
@@ -102,6 +105,7 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
   const [tagInput, setTagInput] = useState('')
   const [scopeInput, setScopeInput] = useState('')
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
+  const [scopeRoster, setScopeRoster] = useState<ScopeRoster | null>(null)
 
   const [items, setItems] = useState<Knowledge[]>([])
   const [currentCursor, setCurrentCursor] = useState<string | null>(null)
@@ -130,6 +134,7 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
   const inspectRequest = useRef(0)
   const listRequest = useRef(0)
   const listController = useRef<AbortController | null>(null)
+  const scopesController = useRef<AbortController | null>(null)
   const listPanelRef = useRef<HTMLDivElement>(null)
   /** False until the panel has been opened once: nothing loads while hidden. */
   const activated = useRef(false)
@@ -171,6 +176,27 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
 
   const refresh = useCallback((): void => { void loadPage(null, [], 1) }, [loadPage])
 
+  const loadScopes = useCallback(async (): Promise<void> => {
+    scopesController.current?.abort()
+    const abort = new AbortController()
+    scopesController.current = abort
+    try {
+      const roster = await getScopes(shelf, abort.signal)
+      if (abort.signal.aborted) return
+      setScopeRoster({ shelf, scopes: roster.supported ? roster.scopes : null })
+    } catch {
+      // No notice: the roster only widens the dropdown, and without it the
+      // options fall back to the rows on screen.
+      if (!abort.signal.aborted) setScopeRoster({ shelf, scopes: null })
+    }
+  }, [shelf])
+
+  /** Re-read the page and the scope roster, which a deletion can shrink. */
+  const reload = useCallback((): void => {
+    refresh()
+    void loadScopes()
+  }, [loadScopes, refresh])
+
   const previousPage = useCallback((): void => {
     if (listLoading || cursorHistory.length === 0) return
     void loadPage(cursorHistory.at(-1) ?? null, cursorHistory.slice(0, -1), pageNumber - 1)
@@ -209,19 +235,23 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
     refresh()
   }, [refresh, panel.open])
 
-  useEffect(() => () => { listController.current?.abort() }, [])
+  // The roster covers the whole shelf, so it follows the shelf, not the page.
+  // Only an open panel reads it: nothing can change a shelf's scopes from a
+  // closed console, and reopening reads it afresh.
+  useEffect(() => {
+    if (!panel.open) return
+    void loadScopes()
+  }, [loadScopes, panel.open])
 
-  const availableScopes = useMemo(() => {
-    const values = new Set<string>()
-    let hasGlobal = false
-    for (const item of items) {
-      for (const itemScope of item.content.scopes) {
-        if (itemScope === '') hasGlobal = true
-        else values.add(itemScope)
-      }
-    }
-    return { values: [...values].sort((left, right) => left.localeCompare(right)), hasGlobal }
-  }, [items])
+  useEffect(() => () => {
+    listController.current?.abort()
+    scopesController.current?.abort()
+  }, [])
+
+  const availableScopes = useMemo(
+    () => scopeOptions(scopeRoster, shelf, items, scopeInput),
+    [items, scopeInput, scopeRoster, shelf],
+  )
 
   // Read in page order and filtered through the rows actually on screen, so
   // a name the page no longer carries cannot reach the delete request.
@@ -321,7 +351,7 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
         ? t('delete.done.cascade', { name: result.name, count: result.deletedRelations })
         : t('delete.done.retained', { name: result.name, count: result.retainedRelations }),
     })
-    refresh()
+    reload()
   }
 
   async function confirmBatchDelete(deleteRelations: boolean, acknowledgedCount: number): Promise<void> {
@@ -341,7 +371,7 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
       ? ` ${t('batch.done.issues', { missing: result.missingCount, failed: result.failedCount })}`
       : ''
     setNotice({ tone: result.failedCount > 0 ? 'error' : 'success', text: summary + issues })
-    refresh()
+    reload()
   }
 
   const connectedCount = shelves.filter(entry => entry.connected).length
@@ -398,7 +428,7 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
             <button
               className="dshhy-icon-button" type="button"
               title={t('refresh')} aria-label={t('refresh')}
-              onClick={refresh} disabled={listLoading}
+              onClick={reload} disabled={listLoading}
             >
               <IconRefreshOutline16 size={16} className={listLoading ? 'dshhy-spin' : ''} />
             </button>

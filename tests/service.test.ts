@@ -33,6 +33,7 @@ function stubCli(overrides: Partial<HypatiaCli>): HypatiaCli {
   return {
     version: vi.fn(),
     shelves: vi.fn(),
+    scopes: vi.fn(),
     run: vi.fn(),
     query: vi.fn(),
     searchKnowledgeKeys: vi.fn(),
@@ -65,6 +66,18 @@ describe('cursors', () => {
   it('refuses a malformed or negative token', () => {
     expect(() => decodeCursor('not-base64url!!', QUERY)).toThrow(RequestValidationError)
     expect(() => decodeCursor(encodeCursor({ ...QUERY, offset: -1 }), QUERY)).toThrow(RequestValidationError)
+  })
+})
+
+describe('scopes', () => {
+  it('reports the roster as supported when the CLI can list it', async () => {
+    const service = new HypatiaService(stubCli({ scopes: vi.fn().mockResolvedValue(['', 'hypatia']) }))
+    await expect(service.scopes('default')).resolves.toEqual({ supported: true, scopes: ['', 'hypatia'] })
+  })
+
+  it('reports an empty, unsupported roster when the CLI predates `scope list`', async () => {
+    const service = new HypatiaService(stubCli({ scopes: vi.fn().mockResolvedValue(null) }))
+    await expect(service.scopes('default')).resolves.toEqual({ supported: false, scopes: [] })
   })
 })
 

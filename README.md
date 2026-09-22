@@ -36,7 +36,13 @@ needs the other.
 
 - **Shelves** — lists every registered shelf and works within the selected one.
 - **Search** — Hypatia's JSE full-text query, then local tag and scope filters,
-  paged with cursors bound to the query that issued them.
+  paged with cursors bound to the query that issued them. The scope filter
+  offers every scope the shelf uses, read with `hypatia scope list`; a Hypatia
+  build without that command (the 4.0.0 release and earlier) offers only the
+  scopes of the page on screen. Support is detected at run time, not from the
+  version number: builds from Hypatia's main branch that have the command
+  still report 4.0.0. The roster counts statements too, so a scope that only
+  statements carry is offered and filters the record list to nothing.
 - **Records** — the full stored body rendered through DSH's markdown renderer
   (raw HTML and unsafe protocols disabled), with tags, scopes, and every direct
   incoming and outgoing statement.

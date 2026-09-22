@@ -161,6 +161,29 @@ export function parseShelves(stdout: string): Shelf[] {
 }
 
 /**
+ * Parse `hypatia scope list --json` (or `tag list --json`).
+ * @param stdout - raw command output: `[{"value": …, "entries": N}]`.
+ * @returns the values in CLI order; the global scope stays the empty string.
+ * @throws {HypatiaCliError} when the payload is not an array of objects.
+ */
+export function parseValueList(stdout: string): string[] {
+  return parseCliRows(stdout)
+    .map(row => row['value'])
+    // asString would turn a missing value into '', the global scope.
+    .filter((value): value is string => typeof value === 'string')
+}
+
+/**
+ * Tell whether a failure means the CLI predates a subcommand.
+ * @param error - what the invocation threw.
+ * @param subcommand - the top-level subcommand that was run.
+ * @returns true for the argument parser's unknown-subcommand refusal.
+ */
+export function isUnrecognizedSubcommand(error: unknown, subcommand: string): boolean {
+  return error instanceof HypatiaCliError && error.message.includes(`unrecognized subcommand '${subcommand}'`)
+}
+
+/**
  * Build the JSE query selecting knowledge records.
  * @param search - free-text term; empty selects everything.
  * @param options - paging window; omit for an unbounded array-form query.
@@ -311,6 +334,25 @@ export class HypatiaCli {
   async shelves(): Promise<Shelf[]> {
     const result = await this.run(['list'])
     return parseShelves(result.stdout)
+  }
+
+  /**
+   * Read every scope a shelf uses. `scope list` arrived after the Hypatia
+   * 4.0.0 release, but a build that has it may still report 4.0.0, so support
+   * is detected from the refusal rather than from `--version`. `--json` is
+   * read because the plain listing prints the global scope as the label
+   * `(global)` rather than its value, the empty string.
+   * @param shelf - shelf name.
+   * @returns the scopes, or null when the CLI has no `scope` subcommand.
+   */
+  async scopes(shelf: string): Promise<string[] | null> {
+    try {
+      const result = await this.run(['scope', 'list', '--json', '--shelf', shelf])
+      return parseValueList(result.stdout)
+    } catch (error: unknown) {
+      if (isUnrecognizedSubcommand(error, 'scope')) return null
+      throw error
+    }
   }
 
   /**

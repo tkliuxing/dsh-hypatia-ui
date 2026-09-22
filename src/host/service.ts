@@ -30,7 +30,7 @@ import {
   DEFAULT_SHELF, GLOBAL_SCOPE_TOKEN,
   type BatchDeleteOutcome, type BatchDeleteResponse, type DeleteResponse,
   type GraphEdge, type GraphNode, type GraphNodeResponse,
-  type Impact, type Knowledge, type KnowledgePage, type Relationship, type Shelf,
+  type Impact, type Knowledge, type KnowledgePage, type Relationship, type ScopesResponse, type Shelf,
 } from '../protocol.ts'
 import { buildKnowledgeQuery, filterKnowledge, HypatiaCli, normalizeKnowledge } from './hypatia-cli.ts'
 
@@ -140,6 +140,17 @@ export class HypatiaService {
    */
   shelves(): Promise<Shelf[]> {
     return this.cli.shelves()
+  }
+
+  /**
+   * Scope roster for one shelf.
+   * @param shelf - shelf name.
+   * @returns every scope the shelf uses, or `supported: false` when the CLI
+   *   predates `scope list`.
+   */
+  async scopes(shelf: string): Promise<ScopesResponse> {
+    const scopes = await this.cli.scopes(shelf)
+    return scopes === null ? { supported: false, scopes: [] } : { supported: true, scopes }
   }
 
   /**
