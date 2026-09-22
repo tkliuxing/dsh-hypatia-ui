@@ -122,6 +122,17 @@ export interface ShelvesResponse {
   shelves: Shelf[]
 }
 
+/** Scope-roster answer for one shelf. */
+export interface ScopesResponse {
+  /**
+   * False when the CLI predates `hypatia scope list`; `scopes` is then empty
+   * and the browser falls back to the scopes of the rows it has loaded.
+   */
+  supported: boolean
+  /** Every scope the shelf uses; the empty string is the global scope. */
+  scopes: string[]
+}
+
 /** Largest number of records one batch deletion may carry. */
 export const MAX_BATCH_DELETE = 50
 

@@ -15,7 +15,7 @@
 import {
   HYPATIA_API_PREFIX,
   type BatchDeleteResponse, type DeleteResponse, type GraphNodeResponse, type Impact,
-  type KnowledgePage, type ShelvesResponse,
+  type KnowledgePage, type ScopesResponse, type ShelvesResponse,
 } from '../protocol.ts'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -40,6 +40,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
  */
 export function getShelves(signal?: AbortSignal): Promise<ShelvesResponse> {
   return request('/shelves', signal === undefined ? undefined : { signal })
+}
+
+/**
+ * Read every scope one shelf uses.
+ * @param shelf - shelf name.
+ * @param signal - abort signal.
+ * @returns the scopes, or `supported: false` when the CLI cannot list them.
+ */
+export function getScopes(shelf: string, signal?: AbortSignal): Promise<ScopesResponse> {
+  const search = new URLSearchParams({ shelf })
+  return request(`/scopes?${search.toString()}`, signal === undefined ? undefined : { signal })
 }
 
 /** One page request's parameters. */

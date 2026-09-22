@@ -137,6 +137,12 @@ async function dispatch(
     return
   }
 
+  if (path === '/scopes') {
+    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET, HEAD')
+    writeJson(res, 200, await service.scopes(shelf))
+    return
+  }
+
   if (path === '/knowledge') {
     if (method === 'DELETE') return deleteBatch(service, req, res, shelf)
     if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET, HEAD, DELETE')

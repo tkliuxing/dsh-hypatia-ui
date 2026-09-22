@@ -4,14 +4,15 @@
  * These are the functions that stand between Hypatia's output and everything
  * the console shows, so the cases here are the ones that would silently
  * corrupt the view rather than fail loudly: the two statement response shapes,
- * the no-results markers, and the filter semantics of the empty scope.
+ * the no-results markers, the filter semantics of the empty scope, and telling
+ * a CLI that predates `scope list` apart from one that failed.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
-  buildKnowledgeQuery, buildStatementQuery, filterKnowledge, HypatiaCliError,
-  normalizeContent, normalizeKnowledge, normalizeStatement,
-  parseCliObject, parseCliRows, parseShelves,
+  buildKnowledgeQuery, buildStatementQuery, filterKnowledge, HypatiaCli, HypatiaCliError,
+  isUnrecognizedSubcommand, normalizeContent, normalizeKnowledge, normalizeStatement,
+  parseCliObject, parseCliRows, parseShelves, parseValueList,
 } from '../src/host/hypatia-cli.ts'
 import type { Knowledge } from '../src/protocol.ts'
 
@@ -173,5 +174,62 @@ describe('filterKnowledge', () => {
 
   it('passes everything through when neither filter is set', () => {
     expect(filterKnowledge(items, '  ', '  ')).toHaveLength(3)
+  })
+})
+
+describe('parseValueList', () => {
+  it('reads the values of `scope list --json`, keeping the global scope as the empty string', () => {
+    const stdout = '[\n  { "entries": 12, "value": "" },\n  { "entries": 8, "value": "hypatia" }\n]\n'
+    expect(parseValueList(stdout)).toEqual(['', 'hypatia'])
+  })
+
+  it('reads an empty shelf as no values', () => {
+    expect(parseValueList('[]\n')).toEqual([])
+  })
+
+  it('drops a row without a string value instead of reading it as the global scope', () => {
+    expect(parseValueList('[{"entries":1},{"value":null},{"value":"a"}]')).toEqual(['a'])
+  })
+
+  it('refuses a payload that is not an array of objects', () => {
+    expect(() => parseValueList('["a"]')).toThrow(HypatiaCliError)
+  })
+})
+
+describe('isUnrecognizedSubcommand', () => {
+  const refusal = new HypatiaCliError(
+    "error: unrecognized subcommand 'scope'\n\nUsage: hypatia [COMMAND]\n\nFor more information, try '--help'.", 2,
+  )
+
+  it("recognizes the argument parser's refusal of that subcommand", () => {
+    expect(isUnrecognizedSubcommand(refusal, 'scope')).toBe(true)
+  })
+
+  it('does not match another subcommand, another failure, or a non-CLI error', () => {
+    expect(isUnrecognizedSubcommand(refusal, 'tag')).toBe(false)
+    expect(isUnrecognizedSubcommand(new HypatiaCliError("Error: shelf error: shelf 'x' is not connected", 1), 'scope'))
+      .toBe(false)
+    expect(isUnrecognizedSubcommand(new Error("unrecognized subcommand 'scope'"), 'scope')).toBe(false)
+  })
+})
+
+describe('HypatiaCli.scopes', () => {
+  it('runs `scope list --json` against the shelf and returns the values', async () => {
+    const cli = new HypatiaCli({ binary: 'hypatia' })
+    const run = vi.spyOn(cli, 'run').mockResolvedValue({ stdout: '[{"value":"","entries":1}]', stderr: '' })
+    await expect(cli.scopes('work')).resolves.toEqual([''])
+    expect(run).toHaveBeenCalledWith(['scope', 'list', '--json', '--shelf', 'work'])
+  })
+
+  it('answers null when the CLI predates the scope subcommand', async () => {
+    const cli = new HypatiaCli({ binary: 'hypatia' })
+    vi.spyOn(cli, 'run').mockRejectedValue(new HypatiaCliError("error: unrecognized subcommand 'scope'", 2))
+    await expect(cli.scopes('default')).resolves.toBeNull()
+  })
+
+  it('passes any other failure through', async () => {
+    const cli = new HypatiaCli({ binary: 'hypatia' })
+    vi.spyOn(cli, 'run').mockRejectedValue(new HypatiaCliError("Error: shelf error: shelf 'x' is not connected", 1))
+    await expect(cli.scopes('x')).rejects.toThrow(/not connected/)
   })
 })
