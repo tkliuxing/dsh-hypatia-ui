@@ -25,7 +25,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  IconCloseOutline16, IconDatabaseOutline16, IconLoadingOutline16, IconTrashOutline16,
+  IconCloseOutlineRegular, IconDatabaseOutlineRegular, IconLoadingOutlineRegular, IconTrashOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { Templated } from './DeleteDialog.tsx'
 import { t } from './locales.ts'
@@ -87,7 +87,7 @@ export function BatchDeleteDialog({ names, onCancel, onConfirm, onFailed }: {
             onClick={onCancel} disabled={deleting}
             aria-label={t('batch.close')} title={t('batch.close')}
           >
-            <IconCloseOutline16 size={15} />
+            <IconCloseOutlineRegular size={15} />
           </button>
         </header>
 
@@ -95,7 +95,7 @@ export function BatchDeleteDialog({ names, onCancel, onConfirm, onFailed }: {
           <Templated messageKey="batch.body" value={String(total)} as="strong" placeholder="{count}" />
         </p>
         <div className="dshhy-impact">
-          <IconDatabaseOutline16 size={15} />
+          <IconDatabaseOutlineRegular size={15} />
           <span>{t('batch.list')}</span>
         </div>
         <ul className="dshhy-name-list">
@@ -130,8 +130,8 @@ export function BatchDeleteDialog({ names, onCancel, onConfirm, onFailed }: {
             onClick={() => { void submit() }} disabled={deleting || !confirmed}
           >
             {deleting
-              ? <IconLoadingOutline16 size={14} className="dshhy-spin" />
-              : <IconTrashOutline16 size={14} />}
+              ? <IconLoadingOutlineRegular size={14} className="dshhy-spin" />
+              : <IconTrashOutlineRegular size={14} />}
             {t('batch.submit')}
           </button>
         </footer>

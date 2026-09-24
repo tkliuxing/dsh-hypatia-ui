@@ -20,7 +20,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  IconBranchOutline16, IconCloseOutline16, IconLoadingOutline16, IconTrashOutline16,
+  IconBranchOutlineRegular, IconCloseOutlineRegular, IconLoadingOutlineRegular, IconTrashOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Impact } from '../protocol.ts'
 import { t, type HypatiaKey } from './locales.ts'
@@ -100,7 +100,7 @@ export function DeleteDialog({ impact, onCancel, onConfirm, onFailed }: {
             onClick={onCancel} disabled={deleting}
             aria-label={t('delete.close')} title={t('delete.close')}
           >
-            <IconCloseOutline16 size={15} />
+            <IconCloseOutlineRegular size={15} />
           </button>
         </header>
 
@@ -108,7 +108,7 @@ export function DeleteDialog({ impact, onCancel, onConfirm, onFailed }: {
           <Templated messageKey="delete.body" value={name} as="strong" />
         </p>
         <div className="dshhy-impact">
-          <IconBranchOutline16 size={15} />
+          <IconBranchOutlineRegular size={15} />
           <span>{t('delete.impact', { count: impact.relationships.length })}</span>
         </div>
         <label className="dshhy-check">
@@ -138,8 +138,8 @@ export function DeleteDialog({ impact, onCancel, onConfirm, onFailed }: {
             onClick={() => { void submit() }} disabled={deleting || !confirmed}
           >
             {deleting
-              ? <IconLoadingOutline16 size={14} className="dshhy-spin" />
-              : <IconTrashOutline16 size={14} />}
+              ? <IconLoadingOutlineRegular size={14} className="dshhy-spin" />
+              : <IconTrashOutlineRegular size={14} />}
             {t('delete.submit')}
           </button>
         </footer>

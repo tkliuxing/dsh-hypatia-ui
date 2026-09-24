@@ -27,9 +27,9 @@ import {
   type FormEvent,
 } from 'react'
 import {
-  IconArchiveOutline20, IconBranchOutline16, IconChevronLeftOutline14,
-  IconChevronRightOutline14, IconCloseOutline16, IconDatabaseOutline16,
-  IconLoadingOutline16, IconRefreshOutline16, IconSearchOutline16, IconTrashOutline16,
+  IconArchiveOutlineRegular, IconBranchOutlineRegular, IconChevronLeftOutlineRegular,
+  IconChevronRightOutlineRegular, IconCloseOutlineRegular, IconDatabaseOutlineRegular,
+  IconLoadingOutlineRegular, IconRefreshOutlineRegular, IconSearchOutlineRegular, IconTrashOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { DEFAULT_SHELF, GLOBAL_SCOPE_TOKEN, type Impact, type Knowledge, type Shelf } from '../protocol.ts'
 import {
@@ -415,14 +415,14 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
                 aria-selected={view === 'records'}
                 onClick={() => { setView('records') }}
               >
-                <IconArchiveOutline20 size={14} /> {t('view.records')}
+                <IconArchiveOutlineRegular size={14} /> {t('view.records')}
               </button>
               <button
                 className="dshhy-tab" type="button" role="tab"
                 aria-selected={view === 'graph'}
                 onClick={() => { setView('graph') }}
               >
-                <IconBranchOutline16 size={14} /> {t('view.graph')}
+                <IconBranchOutlineRegular size={14} /> {t('view.graph')}
               </button>
             </div>
             <button
@@ -430,14 +430,14 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
               title={t('refresh')} aria-label={t('refresh')}
               onClick={reload} disabled={listLoading}
             >
-              <IconRefreshOutline16 size={16} className={listLoading ? 'dshhy-spin' : ''} />
+              <IconRefreshOutlineRegular size={16} className={listLoading ? 'dshhy-spin' : ''} />
             </button>
             <button
               className="dshhy-icon-button" type="button"
               title={t('close')} aria-label={t('close')}
               onClick={() => { controller.close() }}
             >
-              <IconCloseOutline16 size={16} />
+              <IconCloseOutlineRegular size={16} />
             </button>
           </div>
         </header>
@@ -445,7 +445,7 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
         <section className="dshhy-search" aria-label={t('search.aria')}>
           <form onSubmit={submitSearch}>
             <label className="dshhy-field">
-              <IconSearchOutline16 size={16} />
+              <IconSearchOutlineRegular size={16} />
               <input
                 value={queryInput}
                 onChange={event => { setQueryInput(event.target.value) }}
@@ -472,7 +472,7 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
               </select>
             </label>
             <button className="dshhy-button" type="submit">
-              <IconSearchOutline16 size={14} /> {t('search.submit')}
+              <IconSearchOutlineRegular size={14} /> {t('search.submit')}
             </button>
             <button className="dshhy-text-button" type="button" onClick={resetSearch}>{t('search.reset')}</button>
           </form>
@@ -485,14 +485,14 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
                 title={t('list.previous')} aria-label={t('list.previous')}
                 onClick={previousPage} disabled={listLoading || cursorHistory.length === 0}
               >
-                <IconChevronLeftOutline14 size={14} />
+                <IconChevronLeftOutlineRegular size={14} />
               </button>
               <button
                 className="dshhy-icon-button" type="button"
                 title={t('list.next')} aria-label={t('list.next')}
                 onClick={nextPage} disabled={listLoading || nextCursor === null}
               >
-                <IconChevronRightOutline14 size={14} />
+                <IconChevronRightOutlineRegular size={14} />
               </button>
             </div>
           </div>
@@ -502,7 +502,7 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
           <div className={`dshhy-notice dshhy-notice-${notice.tone}`} role="status">
             <span>{notice.text}</span>
             <button type="button" onClick={() => { setNotice(null) }} aria-label={t('notice.dismiss')}>
-              <IconCloseOutline16 size={14} />
+              <IconCloseOutlineRegular size={14} />
             </button>
           </div>
         ) : null}
@@ -520,7 +520,7 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
               type="button" className="dshhy-button dshhy-danger"
               onClick={() => { setBatchTarget(selectedNames) }}
             >
-              <IconTrashOutline16 size={14} /> {t('select.delete')}
+              <IconTrashOutlineRegular size={14} /> {t('select.delete')}
             </button>
           </div>
         ) : null}
@@ -552,17 +552,17 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
               </div>
               {listError !== '' && items.length === 0 ? (
                 <div className="dshhy-blank dshhy-error">
-                  <IconDatabaseOutline16 size={22} /><p>{listError}</p>
+                  <IconDatabaseOutlineRegular size={22} /><p>{listError}</p>
                 </div>
               ) : null}
               {listError === '' && listLoading && items.length === 0 ? (
                 <div className="dshhy-blank">
-                  <IconLoadingOutline16 size={22} className="dshhy-spin" /><p>{t('list.loading')}</p>
+                  <IconLoadingOutlineRegular size={22} className="dshhy-spin" /><p>{t('list.loading')}</p>
                 </div>
               ) : null}
               {listError === '' && !listLoading && items.length === 0 ? (
                 <div className="dshhy-blank">
-                  <IconDatabaseOutline16 size={22} /><p>{t('list.empty')}</p>
+                  <IconDatabaseOutlineRegular size={22} /><p>{t('list.empty')}</p>
                 </div>
               ) : null}
               {items.map(item => (
@@ -612,12 +612,12 @@ export function HypatiaConsole({ controller }: { controller: PanelController }):
             <aside className="dshhy-inspector" aria-label={t('inspector.kicker')}>
               {impactLoading ? (
                 <div className="dshhy-blank">
-                  <IconLoadingOutline16 size={22} className="dshhy-spin" /><p>{t('inspector.loading')}</p>
+                  <IconLoadingOutlineRegular size={22} className="dshhy-spin" /><p>{t('inspector.loading')}</p>
                 </div>
               ) : null}
               {!impactLoading && impact === null ? (
                 <div className="dshhy-blank">
-                  <IconBranchOutline16 size={26} />
+                  <IconBranchOutlineRegular size={26} />
                   <h3>{t('inspector.empty.title')}</h3>
                   <p>{t('inspector.empty.body')}</p>
                 </div>

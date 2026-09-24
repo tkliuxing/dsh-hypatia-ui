@@ -20,8 +20,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import cytoscape, { type Core, type ElementDefinition, type EventObject } from 'cytoscape'
 import {
-  IconBranchOutline16, IconChevronLeftOutline14, IconFullscreenOutline16,
-  IconLoadingOutline16, IconRefreshOutline16,
+  IconBranchOutlineRegular, IconChevronLeftOutlineRegular, IconFullscreenOutlineRegular,
+  IconLoadingOutlineRegular, IconRefreshOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { GraphEdge, GraphNode, GraphNodeResponse } from '../protocol.ts'
 import { getGraphNode } from './api.ts'
@@ -378,7 +378,7 @@ export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusC
     <section className="dshhy-graph" aria-label={t('view.graph')}>
       <div className="dshhy-graph-toolbar">
         <div className="dshhy-graph-summary">
-          <IconBranchOutline16 size={14} aria-hidden="true" />
+          <IconBranchOutlineRegular size={14} aria-hidden="true" />
           <span>{t('graph.nodes', { count: graph.nodes.length })}</span>
           <span>{t('graph.edges', { count: graph.edges.length })}</span>
         </div>
@@ -387,20 +387,20 @@ export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusC
             className="dshhy-icon-button" type="button" onClick={onGoBack} disabled={!canGoBack}
             title={t('graph.back')} aria-label={t('graph.back')}
           >
-            <IconChevronLeftOutline14 size={14} />
+            <IconChevronLeftOutlineRegular size={14} />
           </button>
           <button
             className="dshhy-icon-button" type="button" onClick={fitGraph} disabled={graph.nodes.length === 0}
             title={t('graph.fit')} aria-label={t('graph.fit')}
           >
-            <IconFullscreenOutline16 size={15} />
+            <IconFullscreenOutlineRegular size={15} />
           </button>
           <button
             className="dshhy-icon-button" type="button" onClick={reloadFocus}
             disabled={graph.focus === '' || loadingNode !== ''}
             title={t('graph.reload')} aria-label={t('graph.reload')}
           >
-            <IconRefreshOutline16 size={15} className={loadingNode !== '' ? 'dshhy-spin' : ''} />
+            <IconRefreshOutlineRegular size={15} className={loadingNode !== '' ? 'dshhy-spin' : ''} />
           </button>
         </div>
       </div>
@@ -410,12 +410,12 @@ export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusC
           <div ref={canvasRef} className="dshhy-canvas" aria-label={t('view.graph')} />
           {focusName === null && loadingNode === '' ? (
             <div className="dshhy-canvas-overlay">
-              <IconBranchOutline16 size={26} /><p>{t('graph.blank')}</p>
+              <IconBranchOutlineRegular size={26} /><p>{t('graph.blank')}</p>
             </div>
           ) : null}
           {loadingNode !== '' && graph.nodes.length === 0 ? (
             <div className="dshhy-canvas-overlay">
-              <IconLoadingOutline16 size={24} className="dshhy-spin" /><p>{t('graph.loading')}</p>
+              <IconLoadingOutlineRegular size={24} className="dshhy-spin" /><p>{t('graph.loading')}</p>
             </div>
           ) : null}
           {error !== '' ? (
@@ -441,7 +441,7 @@ export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusC
           {selectedEdge !== null ? <EdgeInspector edge={selectedEdge} /> : null}
           {selectedNode === null && selectedEdge === null ? (
             <div className="dshhy-blank">
-              <IconBranchOutline16 size={24} />
+              <IconBranchOutlineRegular size={24} />
               <h3>{t('graph.inspector.empty.title')}</h3>
               <p>{t('graph.inspector.empty.body')}</p>
             </div>
@@ -512,15 +512,15 @@ function NodeInspector({ node, isFocus, loading, expanded, canExpand, onExpand, 
 
       <div className="dshhy-graph-actions">
         <button className="dshhy-button" type="button" onClick={onFocus} disabled={isFocus}>
-          <IconBranchOutline16 size={14} /> {t('graph.focus')}
+          <IconBranchOutlineRegular size={14} /> {t('graph.focus')}
         </button>
         <button
           className="dshhy-text-button dshhy-outline-button" type="button"
           onClick={onExpand} disabled={expanded || loading || !canExpand}
         >
           {loading
-            ? <IconLoadingOutline16 size={13} className="dshhy-spin" />
-            : <IconRefreshOutline16 size={13} />}
+            ? <IconLoadingOutlineRegular size={13} className="dshhy-spin" />
+            : <IconRefreshOutlineRegular size={13} />}
           {expanded ? t('graph.expanded') : t('graph.expand')}
         </button>
       </div>
@@ -536,7 +536,7 @@ function EdgeInspector({ edge }: { edge: GraphEdge }): React.JSX.Element {
           <p className="dshhy-eyebrow">{t('graph.statement')}</p>
           <h3>{edge.predicate}</h3>
         </div>
-        <IconBranchOutline16 size={18} aria-hidden="true" />
+        <IconBranchOutlineRegular size={18} aria-hidden="true" />
       </div>
       <div className="dshhy-statement-path">
         <span>{edge.source}</span>
