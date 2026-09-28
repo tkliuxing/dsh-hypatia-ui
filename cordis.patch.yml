@@ -8,6 +8,9 @@
 # process and registers the /api/dsh-hypatia routes, while the `dsh.client`
 # declaration in package.json makes the browser half (exports "./client",
 # served at /plugins/@tkliuxing/dsh-hypatia-ui/client.js) load in the web GUI.
+# The browser half occupies two shipped slots — the sidebar's `sidebar.panellist`
+# row and the layout's keyed `main` panel, both under the id `hypatia` — so it
+# needs no composition change of its own and no DOM of the shell's.
 #
 # Override config from a later layer (the profile's own cordis.patch.yml):
 #

@@ -1,22 +1,20 @@
 /**
  * Knowledge and statement body rendering.
  *
- * Markdown goes through DSH's own `MarkdownText`, not a bundled renderer:
- * it is a shared platform module (external, no bundle cost), it already
- * disables raw HTML and unsafe protocols — the same posture
- * `hypatia-archive`'s `skipHtml` takes toward stored content — and it carries
- * the shell's code, table, and math styling, so a record reads exactly like
- * assistant Markdown elsewhere in the GUI.
+ * Markdown goes through the plugin's own {@link Markdown} renderer, which
+ * parses the same GFM grammar DSH uses and builds a React tree rather than an
+ * HTML string — raw HTML stays inert and every destination passes a protocol
+ * allowlist, the posture this console takes toward stored content.
  *
- * Anything else renders as preformatted text.
+ * A body stored in any other format renders verbatim: the record says
+ * `text`, so the console shows text.
  *
  * @module @tkliuxing/dsh-hypatia-ui/client/Content
  */
 
-import { useMemo } from 'react'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { KnowledgeContent } from '../protocol.ts'
-import { t } from './locales.ts'
+import { useTranslate } from './locale-context.tsx'
+import { Markdown } from './Markdown.tsx'
 
 /** Formats rendered as Markdown; everything else is shown verbatim. */
 const MARKDOWN_FORMATS = new Set(['markdown', 'md'])
@@ -30,24 +28,12 @@ export function Content({ content, emptyMessage }: {
   content: KnowledgeContent
   emptyMessage: string
 }): React.JSX.Element {
-  // MarkdownText caches its render against the labels identity, so a fresh
-  // object each render would discard that cache. Keying the memo on the
-  // translated strings themselves keeps one stable identity per locale: it
-  // changes exactly when a Language switch changes the copy, and never
-  // otherwise. (Empty deps would pin the mount-time language forever.)
-  const copyLabel = t('inspector.copy')
-  const copiedLabel = t('inspector.copied')
-  const footnotes = t('inspector.footnotes')
-  const labels = useMemo(
-    () => ({ code: { copyLabel, copiedLabel }, footnotes }),
-    [copyLabel, copiedLabel, footnotes],
-  )
-
+  const t = useTranslate()
   if (content.data === '') return <div className="dshhy-content">{emptyMessage}</div>
   if (MARKDOWN_FORMATS.has(content.format.toLowerCase())) {
     return (
       <div className="dshhy-markdown">
-        <MarkdownText text={content.data} labels={labels} />
+        <Markdown text={content.data} t={t} />
       </div>
     )
   }

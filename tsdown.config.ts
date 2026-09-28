@@ -9,11 +9,22 @@
  * **Browser half** (`lib/client.js`): the lazy-CJS factory artifact DSH's
  * client module system expects — the file registers itself with
  * `window.__ModuleLoader__` and receives a `require` that answers only the
- * shell's seeded module table. That table holds `react`, `react-dom`,
- * `react-dom/client`, `@deepseek-ai/cordis`, and the three shared client
- * libraries; a specifier it cannot answer is a runtime throw, so **everything
- * else must be bundled in** — which is exactly what `alwaysBundle` below
- * enforces for cytoscape and the wire types.
+ * shell's seeded module table. In DSH 0.1.7 that table is
+ * `packages/client/web/src/platform.ts`: `react`, `react/jsx-runtime`,
+ * `react-dom`, `react-dom/client`, `@deepseek-ai/cordis`,
+ * `@deepseek-ai/dsh-client-store`, `@deepseek-ai/dsh-client-ui-slots`,
+ * `@deepseek-ai/dsh-client-ui-primitives`, and
+ * `@deepseek-ai/dsh-client-ui-dockkit`. A specifier the table cannot answer is
+ * a runtime throw, so **everything else must be bundled in** — which is what
+ * `alwaysBundle` below enforces for cytoscape, the Markdown pipeline, and the
+ * wire types.
+ *
+ * The last two platform modules are deliberately NOT in the allowlist below.
+ * The plugin development manual forbids a plugin from requiring a Harness
+ * Client package as a module: they change without notice, and a throwing
+ * component blanks the slot entry it renders in. Keeping them out of the
+ * allowlist turns a careless import into a build-time resolution against disk
+ * rather than a runtime throw in someone else's page.
  *
  * The banner/footer shape mirrors the harness's own `clientBundle` preset; it
  * is the contract the loader reads, not a stylistic choice.
@@ -37,8 +48,9 @@ const PACKAGE_NAME = '@tkliuxing/dsh-hypatia-ui'
 const NODE_EXTERNALS = new Set(['schemastery'])
 
 /**
- * The module table the shell seeds. These stay imports in the browser bundle;
- * anything else is inlined, because the loader's `require` cannot answer it.
+ * The module table the shell seeds minus the two entries a plugin must not
+ * require. These stay imports in the browser bundle; anything else is inlined,
+ * because the loader's `require` cannot answer it.
  */
 const CLIENT_EXTERNALS = new Set([
   'react',
@@ -48,7 +60,6 @@ const CLIENT_EXTERNALS = new Set([
   '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-store',
   '@deepseek-ai/dsh-client-ui-slots',
-  '@deepseek-ai/dsh-client-ui-primitives',
 ])
 
 const NODE_ENV = process.env['NODE_ENV'] ?? 'production'

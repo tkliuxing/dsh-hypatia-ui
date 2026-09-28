@@ -1,17 +1,14 @@
 allowBuilds:
   esbuild: true
+# Freshly published release candidates would otherwise wait out pnpm's
+# minimum-release-age policy; the versions below are the exact DSH 0.1.7-rc.2
+# packages this plugin builds and typechecks against.
 minimumReleaseAgeExclude:
-  - '@deepseek-ai/dsh-brand@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-client-locale@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-client-ui-primitives@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-client-ui-renderer@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-client-ui-slots@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-host-webserver@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-invariants@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-llm@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-scope@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-system-prompt@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-timeout@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-typert-protocol@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-util-crypto@0.1.7-rc.1'
-  - '@deepseek-ai/dsh-util-values@0.1.7-rc.1'
+  - '@deepseek-ai/dsh-client-locale@0.1.7-rc.2'
+  - '@deepseek-ai/dsh-client-ui-layout@0.1.7-rc.2'
+  - '@deepseek-ai/dsh-client-ui-renderer@0.1.7-rc.2'
+  - '@deepseek-ai/dsh-client-ui-sidebar@0.1.7-rc.2'
+  - '@deepseek-ai/dsh-client-ui-slots@0.1.7-rc.2'
+  - '@deepseek-ai/dsh-client-ui-theme@0.1.7-rc.2'
+  - '@deepseek-ai/dsh-host-webserver@0.1.7-rc.2'
+  - '@deepseek-ai/dsh-system-prompt@0.1.7-rc.2'

@@ -12,22 +12,21 @@
  * Cytoscape is the one bundled third-party dependency. Its palette is read
  * from the live DSH theme tokens at mount and re-read on a theme change, so
  * the canvas — the only surface CSS cannot reach — still follows light, dark,
- * and installed skins.
+ * and installed skins. The change signal is the `theme/change` event the panel
+ * injects, not a DOM observer: the host owns the document, and the console
+ * only reads the tokens it publishes.
  *
  * @module @tkliuxing/dsh-hypatia-ui/client/GraphView
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import cytoscape, { type Core, type ElementDefinition, type EventObject } from 'cytoscape'
-import {
-  IconBranchOutlineRegular, IconChevronLeftOutlineRegular, IconFullscreenOutlineRegular,
-  IconLoadingOutlineRegular, IconRefreshOutlineRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { GraphEdge, GraphNode, GraphNodeResponse } from '../protocol.ts'
 import { getGraphNode } from './api.ts'
 import { Content } from './Content.tsx'
-import { dateLabel, scopeLabel } from './HypatiaConsole.tsx'
-import { t } from './locales.ts'
+import { dateLabel, scopeLabel } from './format.ts'
+import { ArrowUpRightIcon, BranchIcon, ChevronLeftIcon, FitIcon, RefreshIcon, SpinnerIcon } from './icons.tsx'
+import { useTranslate } from './locale-context.tsx'
 
 /** Merged-map caps; past either, expansion stops and the user refocuses. */
 const MAX_NODES = 90
@@ -35,6 +34,9 @@ const MAX_EDGES = 160
 
 /** Two taps on one node within this window mean "focus here". */
 const DOUBLE_TAP_WINDOW_MS = 450
+
+/** Subscribe to theme changes; the returned function unsubscribes. */
+export type ThemeObserver = (listener: () => void) => () => void
 
 /** The map currently drawn. */
 interface GraphState {
@@ -236,17 +238,20 @@ function applySelection(cy: Core, selection: Selection): void {
 
 /**
  * The graph workspace.
- * @param props - the shelf, the entity to center, and the console's focus
- *   navigation (its own Back stack, since the URL belongs to the shell).
+ * @param props - the shelf, the entity to center, the console's focus
+ *   navigation (its own Back stack, since the URL belongs to the shell), and
+ *   the injected theme-change signal.
  * @returns the toolbar, canvas, and graph inspector.
  */
-export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusChange }: {
+export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusChange, observeTheme }: {
   shelf: string
   focusName: string | null
   canGoBack: boolean
   onGoBack: () => void
   onFocusChange: (name: string) => void
+  observeTheme: ThemeObserver
 }): React.JSX.Element {
+  const t = useTranslate()
   const canvasRef = useRef<HTMLDivElement>(null)
   const cyRef = useRef<Core | null>(null)
   const onFocusChangeRef = useRef(onFocusChange)
@@ -285,7 +290,7 @@ export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusC
     } finally {
       if (id === requestId.current) setLoadingNode('')
     }
-  }, [shelf])
+  }, [shelf, t])
 
   useEffect(() => { onFocusChangeRef.current = onFocusChange }, [onFocusChange])
 
@@ -298,7 +303,7 @@ export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusC
   }, [focusName, loadNode])
 
   // One cytoscape instance for the component's lifetime. The palette is bound
-  // at construction and refreshed by the theme observer below, so a theme
+  // at construction and refreshed by the theme subscription below, so a theme
   // switch never tears the graph down and loses the map.
   useEffect(() => {
     const container = canvasRef.current
@@ -321,20 +326,18 @@ export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusC
     cy.on('tap', (event: EventObject) => { if (event.target === cy) setSelection(null) })
     cyRef.current = cy
 
-    // The shell writes the resolved theme onto body attributes and variables;
-    // re-read the palette whenever it does, since canvas colors are baked in
-    // rather than inherited from CSS.
-    const themeObserver = new MutationObserver(() => {
+    // Canvas colours are baked in rather than inherited from CSS, so the
+    // palette is re-read whenever the host publishes a new theme.
+    const unsubscribeTheme = observeTheme(() => {
       cy.style(cytoscapeStyle(readPalette(container)))
     })
-    themeObserver.observe(document.body, { attributes: true, attributeFilter: ['style', 'data-ds-dark-theme'] })
 
     return () => {
-      themeObserver.disconnect()
+      unsubscribeTheme()
       cy.destroy()
       cyRef.current = null
     }
-  }, [])
+  }, [observeTheme])
 
   useEffect(() => {
     const cy = cyRef.current
@@ -378,7 +381,7 @@ export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusC
     <section className="dshhy-graph" aria-label={t('view.graph')}>
       <div className="dshhy-graph-toolbar">
         <div className="dshhy-graph-summary">
-          <IconBranchOutlineRegular size={14} aria-hidden="true" />
+          <BranchIcon size={14} aria-hidden="true" />
           <span>{t('graph.nodes', { count: graph.nodes.length })}</span>
           <span>{t('graph.edges', { count: graph.edges.length })}</span>
         </div>
@@ -387,20 +390,20 @@ export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusC
             className="dshhy-icon-button" type="button" onClick={onGoBack} disabled={!canGoBack}
             title={t('graph.back')} aria-label={t('graph.back')}
           >
-            <IconChevronLeftOutlineRegular size={14} />
+            <ChevronLeftIcon size={14} />
           </button>
           <button
             className="dshhy-icon-button" type="button" onClick={fitGraph} disabled={graph.nodes.length === 0}
             title={t('graph.fit')} aria-label={t('graph.fit')}
           >
-            <IconFullscreenOutlineRegular size={15} />
+            <FitIcon size={15} />
           </button>
           <button
             className="dshhy-icon-button" type="button" onClick={reloadFocus}
             disabled={graph.focus === '' || loadingNode !== ''}
             title={t('graph.reload')} aria-label={t('graph.reload')}
           >
-            <IconRefreshOutlineRegular size={15} className={loadingNode !== '' ? 'dshhy-spin' : ''} />
+            <RefreshIcon size={15} className={loadingNode !== '' ? 'dshhy-spin' : undefined} />
           </button>
         </div>
       </div>
@@ -410,12 +413,12 @@ export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusC
           <div ref={canvasRef} className="dshhy-canvas" aria-label={t('view.graph')} />
           {focusName === null && loadingNode === '' ? (
             <div className="dshhy-canvas-overlay">
-              <IconBranchOutlineRegular size={26} /><p>{t('graph.blank')}</p>
+              <BranchIcon size={26} /><p>{t('graph.blank')}</p>
             </div>
           ) : null}
           {loadingNode !== '' && graph.nodes.length === 0 ? (
             <div className="dshhy-canvas-overlay">
-              <IconLoadingOutlineRegular size={24} className="dshhy-spin" /><p>{t('graph.loading')}</p>
+              <SpinnerIcon size={24} className="dshhy-spin" /><p>{t('graph.loading')}</p>
             </div>
           ) : null}
           {error !== '' ? (
@@ -441,7 +444,7 @@ export function GraphWorkspace({ shelf, focusName, canGoBack, onGoBack, onFocusC
           {selectedEdge !== null ? <EdgeInspector edge={selectedEdge} /> : null}
           {selectedNode === null && selectedEdge === null ? (
             <div className="dshhy-blank">
-              <IconBranchOutlineRegular size={24} />
+              <BranchIcon size={24} />
               <h3>{t('graph.inspector.empty.title')}</h3>
               <p>{t('graph.inspector.empty.body')}</p>
             </div>
@@ -461,6 +464,7 @@ function NodeInspector({ node, isFocus, loading, expanded, canExpand, onExpand, 
   onExpand: () => void
   onFocus: () => void
 }): React.JSX.Element {
+  const t = useTranslate()
   const knowledge = node.knowledge
   return (
     <>
@@ -498,7 +502,7 @@ function NodeInspector({ node, isFocus, loading, expanded, canExpand, onExpand, 
                 {knowledge.content.scopes.length > 0
                   ? knowledge.content.scopes.map(scope => (
                     <span className="dshhy-chip dshhy-chip-scope" key={scope === '' ? '__global__' : scope}>
-                      {scopeLabel(scope)}
+                      {scopeLabel(scope, t)}
                     </span>
                   ))
                   : <span className="dshhy-muted">{t('inspector.scopes.none')}</span>}
@@ -512,15 +516,15 @@ function NodeInspector({ node, isFocus, loading, expanded, canExpand, onExpand, 
 
       <div className="dshhy-graph-actions">
         <button className="dshhy-button" type="button" onClick={onFocus} disabled={isFocus}>
-          <IconBranchOutlineRegular size={14} /> {t('graph.focus')}
+          <BranchIcon size={14} /> {t('graph.focus')}
         </button>
         <button
           className="dshhy-text-button dshhy-outline-button" type="button"
           onClick={onExpand} disabled={expanded || loading || !canExpand}
         >
           {loading
-            ? <IconLoadingOutlineRegular size={13} className="dshhy-spin" />
-            : <IconRefreshOutlineRegular size={13} />}
+            ? <SpinnerIcon size={13} className="dshhy-spin" />
+            : <RefreshIcon size={13} />}
           {expanded ? t('graph.expanded') : t('graph.expand')}
         </button>
       </div>
@@ -529,6 +533,7 @@ function NodeInspector({ node, isFocus, loading, expanded, canExpand, onExpand, 
 }
 
 function EdgeInspector({ edge }: { edge: GraphEdge }): React.JSX.Element {
+  const t = useTranslate()
   return (
     <>
       <div className="dshhy-inspector-head">
@@ -536,7 +541,7 @@ function EdgeInspector({ edge }: { edge: GraphEdge }): React.JSX.Element {
           <p className="dshhy-eyebrow">{t('graph.statement')}</p>
           <h3>{edge.predicate}</h3>
         </div>
-        <IconBranchOutlineRegular size={18} aria-hidden="true" />
+        <ArrowUpRightIcon size={18} aria-hidden="true" />
       </div>
       <div className="dshhy-statement-path">
         <span>{edge.source}</span>

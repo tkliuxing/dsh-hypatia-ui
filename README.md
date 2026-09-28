@@ -1,14 +1,19 @@
 # dsh-hypatia-ui
 
 A Hypatia knowledge console for the DSH Web GUI. It adds a **Hypatia 知识库 / Hypatia Knowledge**
-entry to the sidebar — beside the task board and the other panel plugins — and
-opens shelf browsing, JSE search, record inspection, a local relationship graph,
-and guarded deletion in the main column.
+row to the sidebar's global panel list and opens shelf browsing, JSE search,
+record inspection, a local relationship graph, and guarded deletion in the main
+column.
 
 It is the [`hypatia-archive`](https://github.com/tkliuxing/hypatia-ui) console
 rebuilt as a DSH plugin: same capabilities, same non-destructive posture, but
-rendered with DSH's own theme tokens, markdown renderer, and icon set instead of
-its own page.
+rendered inside the shell through DSH's own extension points and theme tokens
+instead of its own page.
+
+Requires **DSH 0.1.7-rc.2 or newer** (`dsh.engines.dsh`). The plugin is a client
+plugin in the sense of the DSH plugin development manual: it contributes React
+components to declared slots, writes no DOM of its own, and shares only
+`--dsw-alias-*` / `--dsw-radius-*` tokens with the host.
 
 Hypatia itself is [MarchLiu/hypatia](https://github.com/MarchLiu/hypatia);
 validated against **Hypatia 0.3.0**.
@@ -26,7 +31,9 @@ dsh plugin --profile web add link:/path/to/dsh-hypatia-ui
 ```
 
 `hypatia` must be on `PATH`, or `HYPATIA_BIN` must point at the executable.
-Restart DSH; the sidebar entry appears under **New Session**.
+Restart DSH; the **Hypatia 知识库** row appears in the sidebar's panel list
+under **New Session**, beside the shipped Plugins row (and the Tasks row, in a
+deployment that enables it).
 
 This package is independent of [`@tkliuxing/dsh-hypatia`](https://www.npmjs.com/package/@tkliuxing/dsh-hypatia)
 (the memory-skills and sandbox-approval bundle). The two compose, and neither
@@ -43,9 +50,10 @@ needs the other.
   version number: builds from Hypatia's main branch that have the command
   still report 4.0.0. The roster counts statements too, so a scope that only
   statements carry is offered and filters the record list to nothing.
-- **Records** — the full stored body rendered through DSH's markdown renderer
-  (raw HTML and unsafe protocols disabled), with tags, scopes, and every direct
-  incoming and outgoing statement.
+- **Records** — the full stored body rendered as Markdown, with tags, scopes,
+  and every direct incoming and outgoing statement. The renderer is the plugin's
+  own (see [Markdown](#markdown)); raw HTML is dropped rather than injected, and
+  a link or image only reaches the DOM after passing a protocol allowlist.
 - **Graph** — a local map around one focused entity: its direct relationships,
   expandable node by node, with an in-console Back through previous focus
   states. A statement referring to a deleted record stays visible as a dashed
@@ -93,11 +101,47 @@ load-bearing:
   user data; they reach `spawn` as an argv array with `shell: false`.
 
 **Browser half** (`exports "./client"`) is a same-origin view with no authority
-of its own. DSH's sidebar declares no slot an external plugin may occupy, and
-the center column is single-occupant, so both surfaces are injected at the DOM
-level — the same approach the task-board plugin takes, and the reason the two
-order predictably beside each other and evict each other through the shared
-`dsh-panel-activate` event.
+of its own, contributed entirely through slots:
+
+- the sidebar glyph registers into `sidebar.panellist` under the panel id
+  `hypatia`, which is the sidebar's own list of global panels — it owns the row,
+  the label, and the selected state;
+- the console registers into the layout's keyed `main` slot under the same id,
+  which is how the shell selects a global panel. Leaving the console is
+  `ctx.layout.selectPanel(null)`, a service call rather than a stylesheet trick.
+
+The console registration declares the plugin's locale namespace, so the framework
+supplies its `t` seat and re-renders the entry on a Language switch; the row's
+label is a thunk the sidebar re-reads, so it follows the language without a
+re-registration. Nothing in the browser half reads or writes the shell's DOM, and
+the deletion dialog renders inside the panel rather than portal-ing to
+`document.body`.
+
+The console keeps only the panel's own state, so leaving and re-entering the
+panel starts from a fresh first page — the lifecycle the shipped Tasks page
+takes. The shelf, filter, and graph-focus selections are not persisted across
+that boundary.
+
+### Markdown
+
+DSH's `MarkdownText` lives in `@deepseek-ai/dsh-client-ui-primitives`, and the
+plugin development manual forbids a plugin from requiring a Harness Client
+package as a module: those packages change without notice — DSH 0.1.7 renamed
+the whole icon set — and a throwing component blanks the slot entry it renders
+in. The console therefore parses stored Markdown itself, with the same
+micromark/GFM grammar DSH uses (`micromark`, `micromark-extension-gfm`,
+`mdast-util-from-markdown`, `mdast-util-gfm`) and builds a React tree from the
+mdast.
+
+Supported: headings, paragraphs, emphasis, strong, strikethrough, inline code,
+fenced and indented code blocks with a copy control, blockquotes,
+ordered/unordered/task lists, tables, thematic breaks, hard breaks, links
+(inline, reference, and autolink), images, and footnotes. Deliberately out of
+scope against the host renderer: syntax highlighting, TeX math, and file or path
+mentions — this console shows stored knowledge bodies, not transcripts.
+
+The icons follow the same rule: `src/client/icons.tsx` carries glyphs copied from
+DSH's product icon set and renamed under the plugin's own components.
 
 ### Request trust
 
@@ -138,12 +182,17 @@ dsh --profile scratch --port 3099
 
 The browser artifact is the lazy-CJS factory DSH's client module system loads:
 it registers itself with `window.__ModuleLoader__` and receives a `require` that
-answers **only** the shell's seeded module table (`react`, `react-dom`,
-`react-dom/client`, `@deepseek-ai/cordis`, and the shared client libraries).
-Anything else must be bundled in — a specifier the table cannot answer is a
-runtime throw, not a build error. That table is also why `cytoscape` is the only
-bundled dependency: markdown, icons, and controls all come from
-`@deepseek-ai/dsh-client-ui-primitives`, which is shared and costs nothing.
+answers **only** the shell's seeded module table. In DSH 0.1.7 that table is
+`packages/client/web/src/platform.ts` — `react`, `react/jsx-runtime`,
+`react-dom`, `react-dom/client`, `@deepseek-ai/cordis`,
+`@deepseek-ai/dsh-client-store`, `@deepseek-ai/dsh-client-ui-slots`,
+`@deepseek-ai/dsh-client-ui-primitives`, and
+`@deepseek-ai/dsh-client-ui-dockkit`. Anything else must be bundled in, since a
+specifier the table cannot answer is a runtime throw rather than a build error.
+`tsdown.config.ts` allowlists only the first seven; leaving the last two out turns
+a careless import of a Harness Client package into a build-time resolution
+instead. `cytoscape` and the Markdown pipeline are the bundled third-party
+dependencies.
 
 The factory takes only `require`, so the CJS body's `module` and `exports` have
 no binding of their own; `tsdown.config.ts` supplies them through `intro`.

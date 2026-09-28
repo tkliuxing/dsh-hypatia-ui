@@ -11,19 +11,18 @@
  * 3. Cascading is opt-in. Left unchecked, the statements survive, which is
  *    Hypatia's own `knowledge-delete` behavior.
  *
- * The dialog renders inside the console's container, not a portal to `body`:
- * the console is one column of the shell, and a body-level overlay would
- * darken the sidebar and header the user can still reach.
+ * The dialog renders inside the panel, not a portal to `body`: the console is
+ * one panel of the shell, and a body-level overlay would darken the sidebar and
+ * header the user can still reach.
  *
  * @module @tkliuxing/dsh-hypatia-ui/client/DeleteDialog
  */
 
 import { useEffect, useRef, useState } from 'react'
-import {
-  IconBranchOutlineRegular, IconCloseOutlineRegular, IconLoadingOutlineRegular, IconTrashOutlineRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Impact } from '../protocol.ts'
-import { t, type HypatiaKey } from './locales.ts'
+import { BranchIcon, CloseIcon, SpinnerIcon, TrashIcon } from './icons.tsx'
+import { useTranslate } from './locale-context.tsx'
+import type { HypatiaKey } from './locales.ts'
 
 /**
  * Render a template around one placeholder, wrapping the value in an element
@@ -40,6 +39,7 @@ export function Templated({ messageKey, value, as: Wrapper, placeholder = '{name
   as: 'strong' | 'code'
   placeholder?: string
 }): React.JSX.Element {
+  const t = useTranslate()
   const [before = '', after = ''] = t(messageKey).split(placeholder)
   return <>{before}<Wrapper>{value}</Wrapper>{after}</>
 }
@@ -56,6 +56,7 @@ export function DeleteDialog({ impact, onCancel, onConfirm, onFailed }: {
   onConfirm: (deleteRelations: boolean, acknowledgedName: string) => Promise<void>
   onFailed: (message: string) => void
 }): React.JSX.Element {
+  const t = useTranslate()
   const [deleteRelations, setDeleteRelations] = useState(false)
   const [acknowledgedName, setAcknowledgedName] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -100,7 +101,7 @@ export function DeleteDialog({ impact, onCancel, onConfirm, onFailed }: {
             onClick={onCancel} disabled={deleting}
             aria-label={t('delete.close')} title={t('delete.close')}
           >
-            <IconCloseOutlineRegular size={15} />
+            <CloseIcon size={15} />
           </button>
         </header>
 
@@ -108,7 +109,7 @@ export function DeleteDialog({ impact, onCancel, onConfirm, onFailed }: {
           <Templated messageKey="delete.body" value={name} as="strong" />
         </p>
         <div className="dshhy-impact">
-          <IconBranchOutlineRegular size={15} />
+          <BranchIcon size={15} />
           <span>{t('delete.impact', { count: impact.relationships.length })}</span>
         </div>
         <label className="dshhy-check">
@@ -138,8 +139,8 @@ export function DeleteDialog({ impact, onCancel, onConfirm, onFailed }: {
             onClick={() => { void submit() }} disabled={deleting || !confirmed}
           >
             {deleting
-              ? <IconLoadingOutlineRegular size={14} className="dshhy-spin" />
-              : <IconTrashOutlineRegular size={14} />}
+              ? <SpinnerIcon size={14} className="dshhy-spin" />
+              : <TrashIcon size={14} />}
             {t('delete.submit')}
           </button>
         </footer>

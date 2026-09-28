@@ -8,14 +8,11 @@
  * @module @tkliuxing/dsh-hypatia-ui/client/Inspector
  */
 
-import {
-  IconBranchOutlineRegular, IconDatabaseOutlineRegular, IconLinkOutlineRegular,
-  IconRightUpOutlineRegular, IconTrashOutlineRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Impact, Relationship } from '../protocol.ts'
 import { Content } from './Content.tsx'
-import { dateLabel, scopeLabel } from './HypatiaConsole.tsx'
-import { t } from './locales.ts'
+import { dateLabel, scopeLabel } from './format.ts'
+import { ArrowUpRightIcon, BranchIcon, DatabaseIcon, TagIcon, TrashIcon } from './icons.tsx'
+import { useTranslate } from './locale-context.tsx'
 
 /**
  * Render one relationship as the triple it is, read from the inspected
@@ -40,6 +37,7 @@ export function Inspector({ impact, onDelete, onOpenGraph }: {
   onDelete: () => void
   onOpenGraph: () => void
 }): React.JSX.Element {
+  const t = useTranslate()
   const { knowledge, relationships } = impact
   return (
     <>
@@ -53,13 +51,13 @@ export function Inspector({ impact, onDelete, onOpenGraph }: {
             type="button" className="dshhy-icon-button"
             onClick={onOpenGraph} title={t('inspector.openGraph')} aria-label={t('inspector.openGraph')}
           >
-            <IconBranchOutlineRegular size={15} />
+            <BranchIcon size={15} />
           </button>
           <button
             type="button" className="dshhy-icon-button dshhy-danger"
             onClick={onDelete} title={t('inspector.delete')} aria-label={t('inspector.delete')}
           >
-            <IconTrashOutlineRegular size={15} />
+            <TrashIcon size={15} />
           </button>
         </div>
       </div>
@@ -73,7 +71,7 @@ export function Inspector({ impact, onDelete, onOpenGraph }: {
 
       <div className="dshhy-meta-groups">
         <div>
-          <p><IconLinkOutlineRegular size={13} /> {t('inspector.tags')}</p>
+          <p><TagIcon size={13} /> {t('inspector.tags')}</p>
           <div className="dshhy-chip-wrap">
             {knowledge.content.tags.length > 0
               ? knowledge.content.tags.map(tag => (
@@ -83,12 +81,12 @@ export function Inspector({ impact, onDelete, onOpenGraph }: {
           </div>
         </div>
         <div>
-          <p><IconDatabaseOutlineRegular size={13} /> {t('inspector.scopes')}</p>
+          <p><DatabaseIcon size={13} /> {t('inspector.scopes')}</p>
           <div className="dshhy-chip-wrap">
             {knowledge.content.scopes.length > 0
               ? knowledge.content.scopes.map(scope => (
                 <span className="dshhy-chip dshhy-chip-scope" key={scope === '' ? '__global__' : scope}>
-                  {scopeLabel(scope)}
+                  {scopeLabel(scope, t)}
                 </span>
               ))
               : <span className="dshhy-muted">{t('inspector.scopes.none')}</span>}
@@ -97,7 +95,7 @@ export function Inspector({ impact, onDelete, onOpenGraph }: {
       </div>
 
       <div className="dshhy-relations-head">
-        <span><IconBranchOutlineRegular size={14} /> {t('inspector.relationships')}</span>
+        <span><BranchIcon size={14} /> {t('inspector.relationships')}</span>
         <b>{relationships.length}</b>
       </div>
       <div className="dshhy-relations">
@@ -110,10 +108,10 @@ export function Inspector({ impact, onDelete, onOpenGraph }: {
             >
               <span className="dshhy-relation-dir" data-direction={relationship.direction}>
                 {relationship.direction === 'incoming'
-                  ? <IconRightUpOutlineRegular size={13} className="dshhy-flip" />
+                  ? <ArrowUpRightIcon size={13} className="dshhy-flip" />
                   : relationship.direction === 'outgoing'
-                    ? <IconRightUpOutlineRegular size={13} />
-                    : <IconBranchOutlineRegular size={13} />}
+                    ? <ArrowUpRightIcon size={13} />
+                    : <BranchIcon size={13} />}
               </span>
               <div>
                 <strong>{directionLabel(relationship)}</strong>

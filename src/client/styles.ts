@@ -5,154 +5,74 @@
  * `*.module.css` into a hashed class map through its own lightningcss virtual
  * loader, which an out-of-tree package cannot reproduce without copying that
  * pipeline. A hand-prefixed sheet needs no build machinery, and the `dshhy-`
- * prefix plus the `[data-dsh-hypatia-view]` root scope keep it from touching
- * anything else in the GUI.
+ * prefix plus the `.dshhy-shell` root scope keep it from touching anything
+ * else in the GUI.
  *
- * Every color rides a `--dsw-alias-*` theme token, so the console follows the
- * active DSH theme — light, dark, and installed skins alike — with no palette
- * of its own. Only the graph canvas grid and the cytoscape node colors are
- * literal, and those are read from the computed theme at paint time (see
- * `GraphView.tsx`).
+ * The plugin development manual's styling rule is the contract here: colors and
+ * radii ride theme tokens (`--dsw-alias-*`, `--dsw-radius-*`), so the console
+ * follows the active DSH theme — light, dark, and installed skins alike — and a
+ * renamed token degrades the look instead of breaking the render. Copying the
+ * host's own geometry is the other half: 20px/28px page titles, 28–36px
+ * controls, and the radius scale's role mapping. The only literals left are the
+ * graph canvas grid and the cytoscape node fallbacks, which `GraphView.tsx`
+ * reads from the computed theme at paint time.
  *
  * @module @tkliuxing/dsh-hypatia-ui/client/styles
  */
 
-/** Attribute marking the injected sidebar row. */
-export const ENTRY_ATTRIBUTE = 'data-dsh-hypatia-entry'
-
-/** Selector matching the injected sidebar row. */
-export const ENTRY_SELECTOR = `[${ENTRY_ATTRIBUTE}]`
-
-/** Attribute marking the center-column container. */
-export const VIEW_ATTRIBUTE = 'data-dsh-hypatia-view'
-
-/** Selector matching the center-column container. */
-export const VIEW_SELECTOR = `[${VIEW_ATTRIBUTE}]`
-
-/** Attribute set on `<html>` while the console occupies the center column. */
-export const ACTIVE_ATTRIBUTE = 'data-dsh-hypatia-active'
-
 /** Identifier of this plugin's injected style tag. */
 const STYLE_TAG_ID = 'dsh-hypatia-ui'
 
-/** Class names the components spell; kept beside the sheet that defines them. */
-export const css = {
-  entry: 'dshhy-entry',
-  entryIcon: 'dshhy-entry-icon',
-  entryLabel: 'dshhy-entry-label',
-} as const
+/** The root class every rule is scoped under. */
+const ROOT = 'dshhy-shell'
 
 const STYLESHEET = `
-/* ── center-column takeover ─────────────────────────────────────────────── */
+/* ── panel frame ────────────────────────────────────────────────────────── */
 
-/* The container rides inside the center column as an extra trailing child
-   React never manages. Hidden unless the console is active. */
-[data-pane='conversation'],
-[class*='centerCol'] { position: relative; }
-
-[${VIEW_ATTRIBUTE}] {
-  position: absolute;
-  inset: 0;
-  display: none;
-  z-index: 60;
-  overflow: hidden;
-  /* Anchors the @container queries at the bottom of this sheet, so the
-     console reflows with the center column rather than the window. */
-  container-name: dshhy-view;
+/* The panel root. It is also the query container the narrow rules below match
+   against — a container query cannot style its own container, so the grid
+   lives on the inner frame — and the positioning context the deletion dialog's
+   backdrop covers. */
+.${ROOT} {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  /* Entry pages in the main panel clear the window's top strip (traffic
+     lights, sidebar toggle) by the host's own variable. */
+  padding-top: var(--dsh-frame-top-clearance, 0px);
   container-type: inline-size;
-  /* Opaque backdrop: the conversation subtree stays mounted underneath, so a
-     sticky element of the host's (code-block banners sit at z-index 6) must
-     not show through even if the hide rule below were ever defeated. */
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-primary);
   font-size: 13px;
 }
 
-/* The :not() guards keep sibling center-column panels (task board, ssh) from
-   fighting over visibility during the frame in which two activation
-   attributes coexist. */
-html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-active]) [${VIEW_ATTRIBUTE}] {
-  display: block;
-}
-
-/* While the console is active the conversation content underneath is hidden;
-   it stays mounted and keeps its state. !important is required: the shell
-   wraps the conversation view in a node carrying an inline display, and an
-   inline style beats a plain stylesheet rule. */
-html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-active]) [data-pane='conversation'] > :not([${VIEW_ATTRIBUTE}]),
-html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-active]) [class*='centerCol'] > :not([${VIEW_ATTRIBUTE}]) {
-  display: none !important;
-}
-
-/* ── sidebar entry row ──────────────────────────────────────────────────── */
-
-.${css.entry} {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  height: 36px;
-  padding: 0 10px;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: var(--dsw-alias-label-secondary);
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  white-space: nowrap;
-}
-.${css.entry}:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-primary);
-}
-.${css.entry}[data-active] {
-  background: var(--dsw-alias-interactive-bg-active);
-  color: var(--dsw-alias-label-primary);
-  font-weight: 600;
-}
-.${css.entryIcon} {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex: none;
-}
-.${css.entryIcon} svg { display: block; }
-.${css.entryLabel} { overflow: hidden; text-overflow: ellipsis; }
-
-/* Collapsed sidebar: the shell keeps a 56px rail, so the row becomes its icon. */
-[data-dsh-frame][data-sidebar-collapsed] .${css.entry},
-[data-sidebar-collapsed] .${css.entry} {
-  justify-content: center;
-  padding: 0;
-}
-[data-dsh-frame][data-sidebar-collapsed] .${css.entryLabel},
-[data-sidebar-collapsed] .${css.entryLabel} { display: none; }
-
-/* ── console shell ──────────────────────────────────────────────────────── */
-
-/* The element reset is wrapped in :where() so it contributes zero
-   specificity. Written plainly, "[data-dsh-hypatia-view] button" (0-1-1)
-   outranks every component class (0-1-0) and its "color: inherit" silently
-   defeats each button's own color — which paints the primary button's label
-   white on a white fill. */
-:where([${VIEW_ATTRIBUTE}]) *,
-:where([${VIEW_ATTRIBUTE}]) *::before,
-:where([${VIEW_ATTRIBUTE}]) *::after { box-sizing: border-box; }
-
-:where([${VIEW_ATTRIBUTE}]) :where(button, input, select) { font: inherit; color: inherit; }
-:where([${VIEW_ATTRIBUTE}]) :where(button) { cursor: pointer; }
-:where([${VIEW_ATTRIBUTE}]) :where(button:disabled) { cursor: not-allowed; opacity: 0.52; }
-
-.dshhy-shell {
+.dshhy-frame {
   display: grid;
   grid-template-columns: 208px minmax(0, 1fr);
-  height: 100%;
+  flex: 1;
   min-height: 0;
 }
+
+/* Zero-specificity reset: written plainly, ".dshhy-shell button" (0-1-1)
+   would outrank every component class (0-1-0) and its "color: inherit" would
+   silently defeat each button's own color — painting the primary button's
+   label white on a white fill. */
+:where(.${ROOT}) *,
+:where(.${ROOT}) *::before,
+:where(.${ROOT}) *::after { box-sizing: border-box; }
+:where(.${ROOT}) :where(button, input, select) { font: inherit; color: inherit; }
+:where(.${ROOT}) :where(button) { cursor: pointer; }
+:where(.${ROOT}) :where(button:disabled) { cursor: not-allowed; opacity: 0.52; }
+/* The host's focus ring, so a keyboard user sees the same affordance here. */
+:where(.${ROOT}) :where(:focus-visible) {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+/* ── shelf rail ─────────────────────────────────────────────────────────── */
 
 .dshhy-shelves {
   display: flex;
@@ -182,9 +102,10 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
   gap: 8px;
   align-items: center;
   width: 100%;
-  padding: 8px;
+  min-height: 32px;
+  padding: 6px 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--dsw-radius-md);
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   text-align: left;
@@ -204,6 +125,8 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 .dshhy-shelf-state { color: var(--dsw-alias-label-tertiary); font-size: 10px; }
 .dshhy-sidebar-empty { padding: 0 6px; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
 
+/* ── workspace ──────────────────────────────────────────────────────────── */
+
 .dshhy-workspace {
   display: flex;
   flex-direction: column;
@@ -222,14 +145,21 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
-.dshhy-header h2 { margin: 0; color: var(--dsw-alias-label-primary); font-size: 20px; line-height: 1.2; }
+.dshhy-header h2 {
+  margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+}
 .dshhy-header-actions { display: flex; align-items: center; gap: 8px; }
 
+/* Compact icon control: the host's 28px square at the small radius. */
 .dshhy-icon-button {
-  width: 30px; height: 30px;
+  width: 28px; height: 28px;
   display: inline-grid; place-items: center;
   border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 6px;
+  border-radius: var(--dsw-radius-sm);
   color: var(--dsw-alias-label-secondary);
   background: var(--dsw-alias-bg-layer-1);
 }
@@ -244,13 +174,13 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
   display: inline-flex; align-items: center; gap: 2px;
   padding: 2px;
   border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 7px;
+  border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-layer-1);
 }
 .dshhy-tab {
   display: inline-flex; align-items: center; gap: 5px;
   min-height: 24px; padding: 0 10px;
-  border: 0; border-radius: 5px;
+  border: 0; border-radius: var(--dsw-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font-size: 12px; font-weight: 600;
@@ -266,7 +196,7 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 .dshhy-search {
   padding: 10px;
   border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 8px;
+  border-radius: var(--dsw-radius-lg);
   background: var(--dsw-alias-bg-layer-1);
 }
 .dshhy-search form {
@@ -278,7 +208,7 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
   display: flex; align-items: center; gap: 8px;
   min-width: 0; min-height: 32px; padding: 0 10px;
   border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 6px;
+  border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-tertiary);
 }
@@ -295,18 +225,22 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 .dshhy-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-height: 32px; padding: 0 13px;
-  border: 1px solid transparent; border-radius: 6px;
+  border: 1px solid transparent; border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-button-primary-fill);
-  color: var(--dsw-alias-label-primary-inverted);
+  color: var(--dsw-alias-label-primary-foreground);
   font-size: 13px; font-weight: 600; white-space: nowrap;
 }
 .dshhy-button:hover:not(:disabled) { background: var(--dsw-alias-button-primary-hover); }
+/* The host ships no destructive button variant: its confirmations carry the
+   danger signal in the copy and the icon. The console keeps a red fill for the
+   one action that removes knowledge — it is the primary action of the dialog —
+   and darkens it on hover rather than moving to a token that reads lighter. */
 .dshhy-button.dshhy-danger { background: var(--dsw-alias-state-error-primary); }
 .dshhy-button.dshhy-danger:hover:not(:disabled) { filter: brightness(0.92); }
 .dshhy-text-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-height: 32px; padding: 0 10px;
-  border: 1px solid transparent; border-radius: 6px;
+  border: 1px solid transparent; border-radius: var(--dsw-radius-md);
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font-size: 13px; font-weight: 600; white-space: nowrap;
@@ -325,14 +259,14 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 }
 .dshhy-pager { display: flex; align-items: center; gap: 5px; }
 .dshhy-page-count { min-width: 66px; text-align: right; font-variant-numeric: tabular-nums; }
-.dshhy-pager .dshhy-icon-button { width: 26px; height: 26px; }
+.dshhy-pager .dshhy-icon-button { width: 24px; height: 24px; border-radius: var(--dsw-radius-xs); }
 
 /* ── notice ─────────────────────────────────────────────────────────────── */
 
 .dshhy-notice {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 8px 11px;
-  border: 1px solid transparent; border-radius: 6px;
+  border: 1px solid transparent; border-radius: var(--dsw-radius-md);
   font-size: 12px;
 }
 .dshhy-notice-success {
@@ -352,7 +286,8 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 .dshhy-selection {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 11px;
-  border: 1px solid var(--dsw-alias-state-error-secondary); border-radius: 6px;
+  border: 1px solid var(--dsw-alias-state-error-secondary);
+  border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-interactive-bg-hover-danger);
 }
 .dshhy-selection-count {
@@ -374,7 +309,7 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 .dshhy-list, .dshhy-inspector {
   min-width: 0; min-height: 0;
   border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 8px;
+  border-radius: var(--dsw-radius-lg);
   background: var(--dsw-alias-bg-layer-1);
   overflow-y: auto;
   scrollbar-gutter: stable;
@@ -437,11 +372,13 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 .dshhy-chips-inline { display: flex; gap: 4px; overflow: hidden; white-space: nowrap; }
 .dshhy-row time { color: var(--dsw-alias-label-tertiary); font-size: 11px; white-space: nowrap; }
 
+/* Tags and scopes are the host's pill-shaped Tag, so a chip never reads as a
+   small button beside one. */
 .dshhy-chip {
   display: inline-block;
   max-width: 108px; overflow: hidden; text-overflow: ellipsis;
-  padding: 2px 5px; border-radius: 4px;
-  font-style: normal; font-size: 10px; line-height: 1.3;
+  padding: 1px 8px; border-radius: 999px;
+  font-style: normal; font-size: 10px; line-height: 17px;
 }
 .dshhy-chip-tag { color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-state-business-tertiary); }
 .dshhy-chip-scope { color: var(--dsw-alias-state-warn-label); background: var(--dsw-alias-state-warn-tertiary); }
@@ -513,11 +450,11 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
   display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: center;
   padding: 7px 8px;
   border-left: 2px solid var(--dsw-alias-border-l2);
-  border-radius: 0 5px 5px 0;
+  border-radius: 0 var(--dsw-radius-sm) var(--dsw-radius-sm) 0;
   background: var(--dsw-alias-bg-layer-2);
 }
 .dshhy-relation-dir {
-  display: grid; place-items: center; width: 22px; height: 22px; border-radius: 5px;
+  display: grid; place-items: center; width: 22px; height: 22px; border-radius: var(--dsw-radius-xs);
   color: var(--dsw-alias-state-success-primary); background: var(--dsw-alias-state-success-tertiary);
 }
 .dshhy-relation-dir[data-direction='incoming'] {
@@ -532,13 +469,109 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 }
 .dshhy-relation small { display: block; margin-top: 2px; color: var(--dsw-alias-label-tertiary); font-size: 10px; }
 
+/* ── rendered Markdown ──────────────────────────────────────────────────── */
+
+.dshhy-markdown > :first-child { margin-top: 0; }
+.dshhy-markdown > :last-child { margin-bottom: 0; }
+.dshhy-markdown p { margin: 0 0 10px; line-height: 1.62; }
+.dshhy-markdown h1, .dshhy-markdown h2, .dshhy-markdown h3, .dshhy-markdown h4 {
+  margin: 16px 0 8px;
+  color: var(--dsw-alias-label-primary);
+  line-height: 1.3;
+}
+.dshhy-markdown h1 { font-size: 18px; }
+.dshhy-markdown h2 { font-size: 16px; }
+.dshhy-markdown h3 { font-size: 14px; }
+.dshhy-markdown h4 { font-size: 13px; }
+.dshhy-markdown ul, .dshhy-markdown ol { margin: 0 0 10px; padding-left: 22px; }
+.dshhy-markdown li { margin: 2px 0; line-height: 1.6; }
+.dshhy-markdown li > p { margin: 0; }
+.dshhy-task-item { list-style: none; margin-left: -18px; }
+.dshhy-task-item input { margin-right: 6px; accent-color: var(--dsw-alias-brand-primary); }
+.dshhy-markdown blockquote {
+  margin: 0 0 10px; padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-secondary);
+}
+.dshhy-markdown hr { margin: 14px 0; border: 0; border-top: 1px solid var(--dsw-alias-border-l1); }
+.dshhy-markdown a { color: var(--dsw-alias-link); text-decoration: none; }
+.dshhy-markdown a:hover { text-decoration: underline; }
+.dshhy-inline-code {
+  padding: 1px 5px;
+  border-radius: var(--dsw-radius-xs);
+  background: var(--dsw-alias-markdown-inline-code);
+  color: var(--dsw-alias-label-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+}
+.dshhy-image {
+  display: block; max-width: 100%; height: auto;
+  margin: 6px 0;
+  border-radius: var(--dsw-radius-md);
+}
+.dshhy-table-wrap { margin: 0 0 10px; overflow-x: auto; }
+.dshhy-markdown table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.dshhy-markdown th, .dshhy-markdown td {
+  padding: 6px 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  text-align: left; vertical-align: top;
+}
+.dshhy-markdown th {
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary); font-weight: 600;
+}
+
+/* Fenced code keeps the host's card shape: a toolbar over the body. */
+.dshhy-code {
+  margin: 0 0 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dsw-radius-md);
+  overflow: hidden;
+  background: var(--dsw-alias-markdown-code-block);
+}
+.dshhy-code-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 4px 6px 4px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-markdown-code-block-banner);
+}
+.dshhy-code-lang {
+  color: var(--dsw-alias-label-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+}
+.dshhy-code-copy {
+  padding: 2px 8px; min-height: 22px;
+  border: 0; border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary); font-size: 11px;
+}
+.dshhy-code-copy:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.dshhy-code pre { margin: 0; padding: 10px 12px; overflow-x: auto; }
+.dshhy-code code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.55;
+  color: var(--dsw-alias-label-primary);
+}
+
+.dshhy-footnotes {
+  margin-top: 16px; padding-top: 10px;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+  color: var(--dsw-alias-label-secondary); font-size: 12px;
+}
+.dshhy-footnotes h4 {
+  margin: 0 0 6px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+}
+.dshhy-footnotes ol { margin: 0; padding-left: 20px; }
+.dshhy-footnote-ref a { color: var(--dsw-alias-link); text-decoration: none; }
+
 /* ── graph ──────────────────────────────────────────────────────────────── */
 
 .dshhy-graph { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .dshhy-graph-toolbar {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   min-height: 40px; padding: 4px 6px 4px 12px;
-  border: 1px solid var(--dsw-alias-border-l1); border-bottom: 0; border-radius: 8px 8px 0 0;
+  border: 1px solid var(--dsw-alias-border-l1); border-bottom: 0;
+  border-radius: var(--dsw-radius-lg) var(--dsw-radius-lg) 0 0;
   background: var(--dsw-alias-bg-layer-1);
 }
 .dshhy-graph-summary { display: flex; align-items: center; gap: 9px; color: var(--dsw-alias-label-tertiary); font-size: 11px; font-variant-numeric: tabular-nums; }
@@ -546,7 +579,8 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 .dshhy-graph-layout {
   display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(290px, 0.62fr);
   flex: 1; min-height: 0;
-  border: 1px solid var(--dsw-alias-border-l1); border-radius: 0 0 8px 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 0 0 var(--dsw-radius-lg) var(--dsw-radius-lg);
   background: var(--dsw-alias-bg-layer-1);
   overflow: hidden;
 }
@@ -569,7 +603,7 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 .dshhy-canvas-overlay p { max-width: 280px; margin: 0; font-size: 13px; line-height: 1.55; }
 .dshhy-graph-banner {
   position: absolute; left: 12px; right: 12px; z-index: 2;
-  padding: 7px 10px; border: 1px solid transparent; border-radius: 6px;
+  padding: 7px 10px; border: 1px solid transparent; border-radius: var(--dsw-radius-md);
   font-size: 12px; line-height: 1.35;
 }
 .dshhy-graph-banner-error {
@@ -591,7 +625,7 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 }
 .dshhy-focus-badge {
   display: inline-flex; align-items: center; flex: none;
-  min-height: 20px; padding: 0 6px; border-radius: 5px;
+  min-height: 20px; padding: 0 8px; border-radius: 999px;
   color: var(--dsw-alias-state-warn-label); background: var(--dsw-alias-state-warn-tertiary);
   font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
 }
@@ -604,7 +638,8 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
   display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, auto) auto minmax(0, 1fr);
   gap: 6px; align-items: center;
   margin: 14px 0; padding: 10px;
-  border-left: 3px solid var(--dsw-alias-border-l2); border-radius: 0 6px 6px 0;
+  border-left: 3px solid var(--dsw-alias-border-l2);
+  border-radius: 0 var(--dsw-radius-md) var(--dsw-radius-md) 0;
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-secondary); font-size: 12px;
 }
@@ -612,20 +647,26 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 .dshhy-statement-path strong { color: var(--dsw-alias-label-primary); font-size: 11px; }
 .dshhy-reference-copy { margin: 14px 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.58; }
 
-/* ── delete dialog ──────────────────────────────────────────────────────── */
+/* ── delete dialogs ─────────────────────────────────────────────────────── */
 
+/* Scoped to the panel, not the viewport: the console is one panel of the
+   shell, and a body-level overlay would cover the sidebar the user can still
+   reach. The mask and the card repeat the host Modal's material — the
+   blocking mask colour and blur token, the secondary layer, the prominent
+   elevation, and the panel radius — so a confirmation here looks like a
+   confirmation anywhere else in the GUI. */
 .dshhy-backdrop {
   position: absolute; inset: 0; z-index: 10;
   display: grid; place-items: center; padding: 18px;
-  background: var(--dsw-alias-bg-mask-2);
+  background: var(--dsw-alias-bg-mask-1);
+  backdrop-filter: var(--dsw-mask-blur);
 }
 .dshhy-dialog {
   width: min(100%, 480px); max-height: 100%; overflow-y: auto;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-top: 3px solid var(--dsw-alias-state-error-primary);
-  border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-1);
-  box-shadow: 0 20px 60px var(--dsw-alias-bg-mask-drop);
+  border: 0;
+  border-radius: var(--dsw-radius-panel);
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-elevation-prominent);
 }
 .dshhy-dialog header, .dshhy-dialog footer {
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
@@ -640,28 +681,27 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 }
 .dshhy-impact {
   display: flex; align-items: center; gap: 7px; margin: 0 16px;
-  padding: 8px 10px; border-radius: 6px;
+  padding: 8px 10px; border-radius: var(--dsw-radius-md);
   color: var(--dsw-alias-state-warn-label); background: var(--dsw-alias-state-warn-tertiary);
   font-size: 12px;
 }
 .dshhy-name-list {
   max-height: 168px; overflow-y: auto;
   margin: 8px 16px 0; padding: 6px 8px;
-  border: 1px solid var(--dsw-alias-border-l1); border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l1); border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-base);
   list-style: none;
   color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1.6;
 }
 .dshhy-name-list li { overflow-wrap: anywhere; }
 .dshhy-check { display: flex; align-items: center; gap: 8px; margin: 14px 16px; color: var(--dsw-alias-label-secondary); font-size: 13px; }
-.dshhy-check input { width: 15px; height: 15px; accent-color: var(--dsw-alias-state-error-primary); }
+.dshhy-check input { width: 15px; height: 15px; accent-color: var(--dsw-alias-button-primary-fill); }
 .dshhy-confirm { display: grid; gap: 6px; margin: 0 16px 14px; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
 .dshhy-confirm input {
   min-height: 34px; padding: 7px 9px;
-  border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; outline: 0;
+  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);
   color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-base);
 }
-.dshhy-confirm input:focus { border-color: var(--dsw-alias-state-error-primary); }
 
 /* ── motion ─────────────────────────────────────────────────────────────── */
 
@@ -673,7 +713,7 @@ html[${ACTIVE_ATTRIBUTE}]:not([data-dsh-taskboard-active]):not([data-dsh-ssh-act
 /* ── narrow layouts ─────────────────────────────────────────────────────── */
 
 @container (max-width: 1080px) {
-  .dshhy-shell { grid-template-columns: 1fr; }
+  .dshhy-frame { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
   .dshhy-shelves {
     flex-direction: row; align-items: center; gap: 8px;
     padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--dsw-alias-border-l1);

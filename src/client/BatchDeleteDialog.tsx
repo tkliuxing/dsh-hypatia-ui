@@ -24,11 +24,9 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import {
-  IconCloseOutlineRegular, IconDatabaseOutlineRegular, IconLoadingOutlineRegular, IconTrashOutlineRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
 import { Templated } from './DeleteDialog.tsx'
-import { t } from './locales.ts'
+import { CloseIcon, DatabaseIcon, SpinnerIcon, TrashIcon } from './icons.tsx'
+import { useTranslate } from './locale-context.tsx'
 
 /**
  * The bulk deletion dialog.
@@ -42,6 +40,7 @@ export function BatchDeleteDialog({ names, onCancel, onConfirm, onFailed }: {
   onConfirm: (deleteRelations: boolean, acknowledgedCount: number) => Promise<void>
   onFailed: (message: string) => void
 }): React.JSX.Element {
+  const t = useTranslate()
   const [deleteRelations, setDeleteRelations] = useState(false)
   const [acknowledgedCount, setAcknowledgedCount] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -87,7 +86,7 @@ export function BatchDeleteDialog({ names, onCancel, onConfirm, onFailed }: {
             onClick={onCancel} disabled={deleting}
             aria-label={t('batch.close')} title={t('batch.close')}
           >
-            <IconCloseOutlineRegular size={15} />
+            <CloseIcon size={15} />
           </button>
         </header>
 
@@ -95,7 +94,7 @@ export function BatchDeleteDialog({ names, onCancel, onConfirm, onFailed }: {
           <Templated messageKey="batch.body" value={String(total)} as="strong" placeholder="{count}" />
         </p>
         <div className="dshhy-impact">
-          <IconDatabaseOutlineRegular size={15} />
+          <DatabaseIcon size={15} />
           <span>{t('batch.list')}</span>
         </div>
         <ul className="dshhy-name-list">
@@ -130,8 +129,8 @@ export function BatchDeleteDialog({ names, onCancel, onConfirm, onFailed }: {
             onClick={() => { void submit() }} disabled={deleting || !confirmed}
           >
             {deleting
-              ? <IconLoadingOutlineRegular size={14} className="dshhy-spin" />
-              : <IconTrashOutlineRegular size={14} />}
+              ? <SpinnerIcon size={14} className="dshhy-spin" />
+              : <TrashIcon size={14} />}
             {t('batch.submit')}
           </button>
         </footer>

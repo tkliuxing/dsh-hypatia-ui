@@ -1,29 +1,45 @@
 /**
  * Surface copy for the console, in the two locales DSH ships.
  *
+ * The dictionaries register through the Client locale service, and every
+ * consumer reads the framework-injected `t` seat: both slot registrations name
+ * this namespace through their `locale` option, which puts a namespace-bound
+ * `t` on the component props and re-renders the entry on a Language switch.
+ * Nothing here caches a translation at mount time, so no surface needs a
+ * subscription of its own.
+ *
  * The zh dictionary is the key-set source of truth; `en` is checked complete
  * against it at compile time, so a key added in one language and forgotten in
  * the other fails the build instead of rendering a raw key at runtime.
  *
- * Plain-DOM callers (the sidebar row) read through {@link t}, which resolves
- * against the live locale service once {@link setRuntimeTranslate} has wired
- * it — so a Language switch re-labels the row without a reload. Before the
- * service arrives, and in tests, the document language decides.
- *
  * @module @tkliuxing/dsh-hypatia-ui/client/locales
  */
+
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 
 /** Locale namespace this plugin owns. */
 export const NS = 'dsh-hypatia-ui'
 
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface LocaleNamespaceMap {
+    /** Hypatia console copy. */
+    'dsh-hypatia-ui': HypatiaKey
+  }
+}
+
+/**
+ * The namespace-bound translate function every console surface receives — the
+ * type of the slot registrations' `t` seat.
+ */
+export type Translate = TranslateNS<typeof NS>
+
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
-  'entry.label': 'Hypatia 知识库',
-  'entry.tooltip': 'Hypatia 知识库控制台',
+  'panel.label': 'Hypatia 知识库',
 
   'title': '知识库维护',
   'subtitle': 'Shelf / {shelf}',
-  'close': '关闭知识库',
+  'close': '返回对话',
   'refresh': '重新载入',
 
   'shelves.title': '书架',
@@ -73,6 +89,7 @@ export const zh = {
   'inspector.content.empty': '没有存储内容。',
   'inspector.copy': '复制',
   'inspector.copied': '已复制',
+  'inspector.code': '代码',
   'inspector.footnotes': '脚注',
   'inspector.failed': '无法读取该条目。',
 
@@ -141,12 +158,11 @@ export type HypatiaKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
-  'entry.label': 'Hypatia Knowledge',
-  'entry.tooltip': 'Hypatia knowledge console',
+  'panel.label': 'Hypatia Knowledge',
 
   'title': 'Knowledge maintenance',
   'subtitle': 'Shelf / {shelf}',
-  'close': 'Close the knowledge console',
+  'close': 'Back to the conversation',
   'refresh': 'Reload',
 
   'shelves.title': 'Shelves',
@@ -196,6 +212,7 @@ export const en = {
   'inspector.content.empty': 'No stored content.',
   'inspector.copy': 'Copy',
   'inspector.copied': 'Copied',
+  'inspector.code': 'Code',
   'inspector.footnotes': 'Footnotes',
   'inspector.failed': 'Unable to inspect this entry.',
 
@@ -258,43 +275,3 @@ export const en = {
 
   'notice.dismiss': 'Dismiss message',
 } satisfies Record<HypatiaKey, string>
-
-/** The translate shape the locale service hands back from `bind`. */
-type TranslateFn = (key: HypatiaKey, params?: Record<string, string | number>) => string
-
-let runtimeTranslate: TranslateFn | undefined
-
-/**
- * Wire the live locale service into {@link t}.
- * @param translate - the bound translate function for this namespace.
- */
-export function setRuntimeTranslate(translate: TranslateFn): void {
-  runtimeTranslate = translate
-}
-
-/** Drop the live translate (plugin unload), returning {@link t} to fallback. */
-export function clearRuntimeTranslate(): void {
-  runtimeTranslate = undefined
-}
-
-function interpolate(text: string, params?: Record<string, string | number>): string {
-  if (params === undefined) return text
-  return text.replace(/\{(\w+)\}/g, (match, key: string) => {
-    const value = params[key]
-    return value === undefined ? match : String(value)
-  })
-}
-
-/**
- * Translate one key.
- * @param key - a key of this namespace.
- * @param params - `{name}`-style substitutions.
- * @returns the live translation when the locale service is wired; otherwise
- *   the document-language fallback (zh for a `zh*` document, else English).
- */
-export function t(key: HypatiaKey, params?: Record<string, string | number>): string {
-  if (runtimeTranslate !== undefined) return runtimeTranslate(key, params)
-  const documentLanguage = typeof document === 'undefined' ? '' : document.documentElement.lang
-  const dictionary = documentLanguage.toLowerCase().startsWith('zh') ? zh : en
-  return interpolate(dictionary[key], params)
-}
