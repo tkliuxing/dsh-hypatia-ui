@@ -63,7 +63,12 @@ export function Inspector({ impact, onDelete, onOpenGraph }: {
       </div>
 
       <div className="dshhy-meta">
-        <span>{knowledge.content.format}</span>
+        <span className="dshhy-meta-left">
+          <span>{knowledge.content.format}</span>
+          {knowledge.content.embed === false ? (
+            <span className="dshhy-chip dshhy-chip-embed" title={t('embed.off.hint')}>{t('embed.off')}</span>
+          ) : null}
+        </span>
         <span>{dateLabel(knowledge.createdAt)}</span>
       </div>
 

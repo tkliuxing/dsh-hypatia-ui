@@ -15,7 +15,7 @@
 import {
   HYPATIA_API_PREFIX,
   type BatchDeleteResponse, type DeleteResponse, type GraphNodeResponse, type Impact,
-  type KnowledgePage, type ScopesResponse, type ShelvesResponse,
+  type KnowledgePage, type ScopesResponse, type ShelvesResponse, type TagsResponse,
 } from '../protocol.ts'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -51,6 +51,17 @@ export function getShelves(signal?: AbortSignal): Promise<ShelvesResponse> {
 export function getScopes(shelf: string, signal?: AbortSignal): Promise<ScopesResponse> {
   const search = new URLSearchParams({ shelf })
   return request(`/scopes?${search.toString()}`, signal === undefined ? undefined : { signal })
+}
+
+/**
+ * Read every tag one shelf uses.
+ * @param shelf - shelf name.
+ * @param signal - abort signal.
+ * @returns the tags, or `supported: false` when the CLI cannot list them.
+ */
+export function getTags(shelf: string, signal?: AbortSignal): Promise<TagsResponse> {
+  const search = new URLSearchParams({ shelf })
+  return request(`/tags?${search.toString()}`, signal === undefined ? undefined : { signal })
 }
 
 /** One page request's parameters. */

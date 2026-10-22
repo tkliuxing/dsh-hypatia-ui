@@ -382,6 +382,10 @@ const STYLESHEET = `
 }
 .dshhy-chip-tag { color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-state-business-tertiary); }
 .dshhy-chip-scope { color: var(--dsw-alias-state-warn-label); background: var(--dsw-alias-state-warn-tertiary); }
+.dshhy-chip-embed {
+  color: var(--dsw-alias-label-tertiary); background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l1);
+}
 
 .dshhy-blank {
   display: grid; place-items: center; align-content: center; gap: 10px;
@@ -417,6 +421,8 @@ const STYLESHEET = `
   color: var(--dsw-alias-label-tertiary);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px;
 }
+.dshhy-meta-left { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.dshhy-meta .dshhy-chip-embed { font-family: inherit; }
 .dshhy-content {
   white-space: pre-wrap; overflow-wrap: anywhere;
   color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.62;

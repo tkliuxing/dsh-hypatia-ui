@@ -34,6 +34,7 @@ function stubCli(overrides: Partial<HypatiaCli>): HypatiaCli {
     version: vi.fn(),
     shelves: vi.fn(),
     scopes: vi.fn(),
+    tags: vi.fn(),
     run: vi.fn(),
     query: vi.fn(),
     searchKnowledgeKeys: vi.fn(),
@@ -78,6 +79,18 @@ describe('scopes', () => {
   it('reports an empty, unsupported roster when the CLI predates `scope list`', async () => {
     const service = new HypatiaService(stubCli({ scopes: vi.fn().mockResolvedValue(null) }))
     await expect(service.scopes('default')).resolves.toEqual({ supported: false, scopes: [] })
+  })
+})
+
+describe('tags', () => {
+  it('reports the roster as supported when the CLI can list it', async () => {
+    const service = new HypatiaService(stubCli({ tags: vi.fn().mockResolvedValue(['system', 'hypatia']) }))
+    await expect(service.tags('default')).resolves.toEqual({ supported: true, tags: ['system', 'hypatia'] })
+  })
+
+  it('reports an empty, unsupported roster when the CLI predates `tag list`', async () => {
+    const service = new HypatiaService(stubCli({ tags: vi.fn().mockResolvedValue(null) }))
+    await expect(service.tags('default')).resolves.toEqual({ supported: false, tags: [] })
   })
 })
 

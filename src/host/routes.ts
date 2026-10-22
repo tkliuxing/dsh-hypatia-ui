@@ -143,6 +143,12 @@ async function dispatch(
     return
   }
 
+  if (path === '/tags') {
+    if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET, HEAD')
+    writeJson(res, 200, await service.tags(shelf))
+    return
+  }
+
   if (path === '/knowledge') {
     if (method === 'DELETE') return deleteBatch(service, req, res, shelf)
     if (method !== 'GET' && method !== 'HEAD') return methodNotAllowed(res, 'GET, HEAD, DELETE')

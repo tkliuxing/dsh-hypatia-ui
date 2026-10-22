@@ -16,7 +16,9 @@ components to declared slots, writes no DOM of its own, and shares only
 `--dsw-alias-*` / `--dsw-radius-*` tokens with the host.
 
 Hypatia itself is [MarchLiu/hypatia](https://github.com/MarchLiu/hypatia);
-validated against **Hypatia 0.3.0**.
+validated against **Hypatia 4.1.1**. The tag and scope rosters need **4.1.0**
+or newer, and are detected at run time rather than from the version number, so
+an older build still works with the reduced filter described below.
 
 ## Install
 
@@ -49,11 +51,19 @@ needs the other.
   scopes of the page on screen. Support is detected at run time, not from the
   version number: builds from Hypatia's main branch that have the command
   still report 4.0.0. The roster counts statements too, so a scope that only
-  statements carry is offered and filters the record list to nothing.
+  statements carry is offered and filters the record list to nothing. The tag
+  field reads `hypatia tag list` the same way and suggests the roster entries
+  matching the typed fragment (capped, so a shelf with thousands of tags never
+  drops the whole vocabulary into the DOM); the filter itself stays a
+  case-insensitive substring match, and a build without the command falls back
+  to the tags of the page on screen.
 - **Records** — the full stored body rendered as Markdown, with tags, scopes,
   and every direct incoming and outgoing statement. The renderer is the plugin's
   own (see [Markdown](#markdown)); raw HTML is dropped rather than injected, and
-  a link or image only reaches the DOM after passing a protocol allowlist.
+  a link or image only reaches the DOM after passing a protocol allowlist. An
+  entry that declared `--no-embed` carries a **not in vector index** badge, in
+  the row and in the inspector: Hypatia emits that flag only for entries that
+  opted out, so its absence is the indexed default and stays unmarked.
 - **Graph** — a local map around one focused entity: its direct relationships,
   expandable node by node, with an in-console Back through previous focus
   states. A statement referring to a deleted record stays visible as a dashed

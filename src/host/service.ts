@@ -31,6 +31,7 @@ import {
   type BatchDeleteOutcome, type BatchDeleteResponse, type DeleteResponse,
   type GraphEdge, type GraphNode, type GraphNodeResponse,
   type Impact, type Knowledge, type KnowledgePage, type Relationship, type ScopesResponse, type Shelf,
+  type TagsResponse,
 } from '../protocol.ts'
 import { buildKnowledgeQuery, filterKnowledge, HypatiaCli, normalizeKnowledge } from './hypatia-cli.ts'
 
@@ -151,6 +152,17 @@ export class HypatiaService {
   async scopes(shelf: string): Promise<ScopesResponse> {
     const scopes = await this.cli.scopes(shelf)
     return scopes === null ? { supported: false, scopes: [] } : { supported: true, scopes }
+  }
+
+  /**
+   * Tag roster for one shelf.
+   * @param shelf - shelf name.
+   * @returns every tag the shelf uses, or `supported: false` when the CLI
+   *   predates `tag list`.
+   */
+  async tags(shelf: string): Promise<TagsResponse> {
+    const tags = await this.cli.tags(shelf)
+    return tags === null ? { supported: false, tags: [] } : { supported: true, tags }
   }
 
   /**

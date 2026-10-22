@@ -30,12 +30,12 @@
  */
 
 import {
-  useCallback, useEffect, useMemo, useRef, useState,
+  useCallback, useEffect, useId, useMemo, useRef, useState,
   type FormEvent,
 } from 'react'
 import { DEFAULT_SHELF, GLOBAL_SCOPE_TOKEN, type Impact, type Knowledge, type Shelf } from '../protocol.ts'
 import {
-  deleteKnowledge, deleteKnowledgeBatch, getImpact, getKnowledgePage, getScopes, getShelves,
+  deleteKnowledge, deleteKnowledgeBatch, getImpact, getKnowledgePage, getScopes, getShelves, getTags,
 } from './api.ts'
 import { BatchDeleteDialog } from './BatchDeleteDialog.tsx'
 import { DeleteDialog } from './DeleteDialog.tsx'
@@ -46,6 +46,7 @@ import { Inspector } from './Inspector.tsx'
 import { TranslateScope, useTranslate } from './locale-context.tsx'
 import type { Translate } from './locales.ts'
 import { scopeOptions, type ScopeRoster } from './scope-options.ts'
+import { tagSuggestions, type TagRoster } from './tag-options.ts'
 
 /** Records per page. */
 const PAGE_LIMIT = 50
@@ -106,6 +107,7 @@ function Console({ close, observeTheme }: PanelInjected): React.JSX.Element {
   const [scopeInput, setScopeInput] = useState('')
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
   const [scopeRoster, setScopeRoster] = useState<ScopeRoster | null>(null)
+  const [tagRoster, setTagRoster] = useState<TagRoster | null>(null)
 
   const [items, setItems] = useState<Knowledge[]>([])
   const [currentCursor, setCurrentCursor] = useState<string | null>(null)
@@ -135,7 +137,10 @@ function Console({ close, observeTheme }: PanelInjected): React.JSX.Element {
   const listRequest = useRef(0)
   const listController = useRef<AbortController | null>(null)
   const scopesController = useRef<AbortController | null>(null)
+  const tagsController = useRef<AbortController | null>(null)
   const listPanelRef = useRef<HTMLDivElement>(null)
+  /** Names the tag field's datalist; `useId` keeps it unique if the panel ever restarts. */
+  const tagListId = useId()
 
   const loadPage = useCallback(async (
     cursor: string | null, nextHistory: Array<string | null>, nextPageNumber: number,
@@ -188,11 +193,27 @@ function Console({ close, observeTheme }: PanelInjected): React.JSX.Element {
     }
   }, [shelf])
 
-  /** Re-read the page and the scope roster, which a deletion can shrink. */
+  const loadTags = useCallback(async (): Promise<void> => {
+    tagsController.current?.abort()
+    const abort = new AbortController()
+    tagsController.current = abort
+    try {
+      const roster = await getTags(shelf, abort.signal)
+      if (abort.signal.aborted) return
+      setTagRoster({ shelf, tags: roster.supported ? roster.tags : null })
+    } catch {
+      // Suggestions only: without a roster the field still accepts a fragment,
+      // and the datalist falls back to the tags of the rows on screen.
+      if (!abort.signal.aborted) setTagRoster({ shelf, tags: null })
+    }
+  }, [shelf])
+
+  /** Re-read the page and both rosters, which a deletion can shrink. */
   const reload = useCallback((): void => {
     refresh()
     void loadScopes()
-  }, [loadScopes, refresh])
+    void loadTags()
+  }, [loadScopes, loadTags, refresh])
 
   const previousPage = useCallback((): void => {
     if (listLoading || cursorHistory.length === 0) return
@@ -228,17 +249,24 @@ function Console({ close, observeTheme }: PanelInjected): React.JSX.Element {
 
   useEffect(() => { refresh() }, [refresh])
 
-  // The roster covers the whole shelf, so it follows the shelf, not the page.
+  // The rosters cover the whole shelf, so they follow the shelf, not the page.
   useEffect(() => { void loadScopes() }, [loadScopes])
+  useEffect(() => { void loadTags() }, [loadTags])
 
   useEffect(() => () => {
     listController.current?.abort()
     scopesController.current?.abort()
+    tagsController.current?.abort()
   }, [])
 
   const availableScopes = useMemo(
     () => scopeOptions(scopeRoster, shelf, items, scopeInput),
     [items, scopeInput, scopeRoster, shelf],
+  )
+
+  const suggestedTags = useMemo(
+    () => tagSuggestions(tagRoster, shelf, items, tagInput),
+    [items, shelf, tagInput, tagRoster],
   )
 
   // Read in page order and filtered through the rows actually on screen, so
@@ -448,6 +476,8 @@ function Console({ close, observeTheme }: PanelInjected): React.JSX.Element {
                   value={tagInput}
                   onChange={event => { setTagInput(event.target.value) }}
                   placeholder={t('search.tag.any')}
+                  list={tagListId}
+                  autoComplete="off"
                 />
               </label>
               <label className="dshhy-compact">
@@ -465,6 +495,11 @@ function Console({ close, observeTheme }: PanelInjected): React.JSX.Element {
               </button>
               <button className="dshhy-text-button" type="button" onClick={resetSearch}>{t('search.reset')}</button>
             </form>
+            {/* Narrowed to the typed fragment and capped, so a shelf with
+                thousands of tags never puts them all in the DOM. */}
+            <datalist id={tagListId}>
+              {suggestedTags.map(tag => <option key={tag} value={tag} />)}
+            </datalist>
             <div className="dshhy-summary">
               <span>{listLoading && items.length === 0 ? t('list.page.loading') : t('list.page', { page: pageNumber })}</span>
               <div className="dshhy-pager">
@@ -590,6 +625,13 @@ function Console({ close, observeTheme }: PanelInjected): React.JSX.Element {
                             </i>
                           ))}
                         </span>
+                        {item.content.embed === false ? (
+                          <span className="dshhy-chips-inline">
+                            <em className="dshhy-chip dshhy-chip-embed" title={t('embed.off.hint')}>
+                              {t('embed.off')}
+                            </em>
+                          </span>
+                        ) : null}
                       </span>
                       <time dateTime={item.createdAt}>{dateLabel(item.createdAt)}</time>
                     </button>

@@ -36,6 +36,15 @@ describe('normalizeContent', () => {
       data: '', format: 'markdown', tags: [], scopes: [], figures: [],
     })
   })
+
+  it('keeps a declared embedding opt-out, and only a boolean one', () => {
+    expect(normalizeContent({ data: 'x', embed: false })).toMatchObject({ embed: false })
+    expect(normalizeContent({ data: 'x', embed: true })).toMatchObject({ embed: true })
+    // The default is an absent member, never an invented `true`, so an
+    // unparsable value must stay absent rather than read as "embedded".
+    expect(normalizeContent({ data: 'x', embed: 'no' })).not.toHaveProperty('embed')
+    expect(normalizeContent({ data: 'x' })).not.toHaveProperty('embed')
+  })
 })
 
 describe('normalizeStatement', () => {
@@ -231,5 +240,28 @@ describe('HypatiaCli.scopes', () => {
     const cli = new HypatiaCli({ binary: 'hypatia' })
     vi.spyOn(cli, 'run').mockRejectedValue(new HypatiaCliError("Error: shelf error: shelf 'x' is not connected", 1))
     await expect(cli.scopes('x')).rejects.toThrow(/not connected/)
+  })
+})
+
+describe('HypatiaCli.tags', () => {
+  it('runs `tag list --json` against the shelf and returns the values', async () => {
+    const cli = new HypatiaCli({ binary: 'hypatia' })
+    const run = vi.spyOn(cli, 'run').mockResolvedValue({
+      stdout: '[{"value":"system","entries":4},{"value":"hypatia","entries":2}]', stderr: '',
+    })
+    await expect(cli.tags('work')).resolves.toEqual(['system', 'hypatia'])
+    expect(run).toHaveBeenCalledWith(['tag', 'list', '--json', '--shelf', 'work'])
+  })
+
+  it('answers null when the CLI predates the tag subcommand', async () => {
+    const cli = new HypatiaCli({ binary: 'hypatia' })
+    vi.spyOn(cli, 'run').mockRejectedValue(new HypatiaCliError("error: unrecognized subcommand 'tag'", 2))
+    await expect(cli.tags('default')).resolves.toBeNull()
+  })
+
+  it('passes any other failure through', async () => {
+    const cli = new HypatiaCli({ binary: 'hypatia' })
+    vi.spyOn(cli, 'run').mockRejectedValue(new HypatiaCliError("Error: shelf error: shelf 'x' is not connected", 1))
+    await expect(cli.tags('x')).rejects.toThrow(/not connected/)
   })
 })

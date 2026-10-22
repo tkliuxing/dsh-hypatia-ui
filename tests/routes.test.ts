@@ -123,3 +123,23 @@ describe('GET /scopes', () => {
     expect((await call({}, requestFor('POST', '/scopes'))).status).toBe(405)
   })
 })
+
+describe('GET /tags', () => {
+  it("answers the named shelf's roster", async () => {
+    const tags = vi.fn().mockResolvedValue({ supported: true, tags: ['system', 'hypatia'] })
+    const result = await call({ tags }, requestFor('GET', '/tags?shelf=work'))
+
+    expect(result).toEqual({ status: 200, body: { supported: true, tags: ['system', 'hypatia'] } })
+    expect(tags).toHaveBeenCalledWith('work')
+  })
+
+  it('reads the default shelf when none is named', async () => {
+    const tags = vi.fn().mockResolvedValue({ supported: false, tags: [] })
+    await call({ tags }, requestFor('GET', '/tags'))
+    expect(tags).toHaveBeenCalledWith('default')
+  })
+
+  it('answers 405 for a method the route does not serve', async () => {
+    expect((await call({}, requestFor('POST', '/tags'))).status).toBe(405)
+  })
+})

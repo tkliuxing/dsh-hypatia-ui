@@ -39,6 +39,13 @@ export interface KnowledgeContent {
   scopes: string[]
   /** Figure references carried alongside the body. */
   figures: string[]
+  /**
+   * Present only when the entry declared its embedding state at write time:
+   * `false` means it deliberately stays out of the vector index (Hypatia's
+   * `--no-embed`), so semantic search never returns it. Absent means the
+   * default, an entry the shelf indexes.
+   */
+  embed?: boolean
 }
 
 /** One knowledge record as a shelf stores it. */
@@ -131,6 +138,17 @@ export interface ScopesResponse {
   supported: boolean
   /** Every scope the shelf uses; the empty string is the global scope. */
   scopes: string[]
+}
+
+/** Tag-roster answer for one shelf. */
+export interface TagsResponse {
+  /**
+   * False when the CLI predates `hypatia tag list`; `tags` is then empty and
+   * the browser falls back to the tags of the rows it has loaded.
+   */
+  supported: boolean
+  /** Every tag the shelf uses. */
+  tags: string[]
 }
 
 /** Largest number of records one batch deletion may carry. */

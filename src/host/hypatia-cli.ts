@@ -11,8 +11,8 @@
  *    predicates are user data; `spawn` receives them as an argv array with
  *    `shell: false` so no payload can compose a second command.
  *
- * Ported from `hypatia-ui`'s `server/hypatia.ts` (validated against Hypatia
- * 0.3.0), keeping its response normalization: 0.3.0 spells statement
+ * Ported from `hypatia-ui`'s `server/hypatia.ts` and exercised against
+ * Hypatia 4.1.1, keeping its response normalization: 0.3.0 spells statement
  * positions `head` / `relation` / `tail`, while older shelves and CLI builds
  * spell them `subject` / `predicate` / `object`. Both are accepted.
  *
@@ -70,13 +70,19 @@ function asStringArray(value: unknown): string[] {
  */
 export function normalizeContent(value: unknown): KnowledgeContent {
   const source = isRecord(value) ? value : {}
-  return {
+  const content: KnowledgeContent = {
     data: asString(source['data']),
     format: asString(source['format']) || 'markdown',
     tags: asStringArray(source['tags']),
     scopes: asStringArray(source['scopes']),
     figures: asStringArray(source['figures']),
   }
+  // Hypatia emits `embed` only for an entry that opted out of the vector
+  // index; the default (indexed) is spelled as an absent member. Keeping it
+  // absent here is what lets the console tell "not embedded" apart from
+  // "unknown" without inventing a `true` the CLI never sent.
+  if (typeof source['embed'] === 'boolean') content.embed = source['embed']
+  return content
 }
 
 /**
@@ -346,11 +352,34 @@ export class HypatiaCli {
    * @returns the scopes, or null when the CLI has no `scope` subcommand.
    */
   async scopes(shelf: string): Promise<string[] | null> {
+    return this.valueRoster('scope', shelf)
+  }
+
+  /**
+   * Read every tag a shelf uses. `tag list` shipped with `scope list`, and it
+   * is detected the same way — from the argument parser's refusal, not from
+   * `--version` — because a build from Hypatia's main branch may still report
+   * an older release. The roster covers statements too, exactly like the scope
+   * roster, so a tag only statements carry is offered as well.
+   * @param shelf - shelf name.
+   * @returns the tags, or null when the CLI has no `tag` subcommand.
+   */
+  async tags(shelf: string): Promise<string[] | null> {
+    return this.valueRoster('tag', shelf)
+  }
+
+  /**
+   * Run one `scope list` / `tag list` roster read.
+   * @param subcommand - the roster command's family.
+   * @param shelf - shelf name.
+   * @returns the values, or null when the CLI has no such subcommand.
+   */
+  private async valueRoster(subcommand: 'scope' | 'tag', shelf: string): Promise<string[] | null> {
     try {
-      const result = await this.run(['scope', 'list', '--json', '--shelf', shelf])
+      const result = await this.run([subcommand, 'list', '--json', '--shelf', shelf])
       return parseValueList(result.stdout)
     } catch (error: unknown) {
-      if (isUnrecognizedSubcommand(error, 'scope')) return null
+      if (isUnrecognizedSubcommand(error, subcommand)) return null
       throw error
     }
   }
