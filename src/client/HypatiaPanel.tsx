@@ -39,7 +39,7 @@ import {
 } from './api.ts'
 import { BatchDeleteDialog } from './BatchDeleteDialog.tsx'
 import { DeleteDialog } from './DeleteDialog.tsx'
-import { dateLabel, excerpt, scopeLabel } from './format.ts'
+import { dateLabel, excerpt, scopeLabel, stampAttribute } from './format.ts'
 import { GraphWorkspace, type ThemeObserver } from './GraphView.tsx'
 import { ArchiveIcon, BranchIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon, DatabaseIcon, RefreshIcon, SearchIcon, SpinnerIcon, TrashIcon } from './icons.tsx'
 import { Inspector } from './Inspector.tsx'
@@ -633,7 +633,7 @@ function Console({ close, observeTheme }: PanelInjected): React.JSX.Element {
                           </span>
                         ) : null}
                       </span>
-                      <time dateTime={item.createdAt}>{dateLabel(item.createdAt)}</time>
+                      <time dateTime={stampAttribute(item.createdAt)}>{dateLabel(item.createdAt)}</time>
                     </button>
                   </div>
                 ))}
