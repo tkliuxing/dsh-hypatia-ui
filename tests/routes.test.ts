@@ -143,3 +143,30 @@ describe('GET /tags', () => {
     expect((await call({}, requestFor('POST', '/tags'))).status).toBe(405)
   })
 })
+
+describe('desktop shell forwarding', () => {
+  /** The shape `forwardWebRequest` produces: browser markers gone, `Host` back, cookie set. */
+  function forwardedByShell(path: string, cookie: string | null = 'dsh_session=8f3a1c'): IncomingMessage {
+    const req = requestFor('GET', path)
+    req.headers = cookie === null ? { host: '127.0.0.1:53702' } : { host: '127.0.0.1:53702', cookie }
+    return req
+  }
+
+  const shelves = [{ name: 'default', path: 'C:\\Users\\me\\.hypatia\\default', connected: true }]
+
+  it('serves a roster the shell forwarded, with every browser marker stripped', async () => {
+    const listShelves = vi.fn().mockResolvedValue(shelves)
+    const result = await call({ shelves: listShelves }, forwardedByShell('/shelves'))
+
+    expect(result).toEqual({ status: 200, body: { shelves } })
+    expect(listShelves).toHaveBeenCalled()
+  })
+
+  it('still refuses the same shape when no cookie accompanies it', async () => {
+    const listShelves = vi.fn()
+    const result = await call({ shelves: listShelves }, forwardedByShell('/shelves', null))
+
+    expect(result.status).toBe(403)
+    expect(listShelves).not.toHaveBeenCalled()
+  })
+})

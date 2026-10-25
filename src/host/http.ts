@@ -7,7 +7,9 @@
  * delete knowledge, so the boundary is enforced here:
  *
  * - the connecting socket must be loopback, and
- * - the request must be same-origin with the server's own authority.
+ * - the request must be same-origin with the server's own authority — or
+ *   arrive through the desktop shell's proxy, which deletes every marker a
+ *   browser would send (see {@link isDesktopShellRequest}).
  *
  * A browser tab on the DSH page passes both. A page on another origin fails
  * the second check even from the same machine, so a drive-by `fetch` cannot
@@ -73,12 +75,41 @@ export function isSameOriginRequest(req: IncomingMessage): boolean {
 }
 
 /**
+ * Whether the request arrived through the DSH desktop shell's proxy.
+ *
+ * The desktop build serves the page from `dsh-app://app` and forwards every
+ * non-asset request to the Host over loopback. It deletes `Host`, `Origin`,
+ * `Sec-Fetch-Site` and `Cookie` first, then sets the Host's own session
+ * cookie — but the forwarding `fetch` puts `Host` back from the target URL, so
+ * the wire shape still carries one. What the request cannot carry is a browser
+ * marker: no `Origin` and no `Sec-Fetch-Site`, only that cookie.
+ *
+ * `Host` is therefore deliberately not inspected here: requiring it absent
+ * would refuse the very requests this exists to admit. That mistake was the
+ * 0.6.1 regression this function fixes — see issue #3.
+ *
+ * The relaxation stays narrow. Every current browser attaches
+ * `Sec-Fetch-Site` to each request it makes, so no page on this machine can
+ * present this shape; the loopback socket still bounds who can reach the port,
+ * and the cookie keeps a bare `curl` out.
+ * @param req - the incoming request.
+ * @returns true when both browser markers are absent and a cookie is set.
+ */
+export function isDesktopShellRequest(req: IncomingMessage): boolean {
+  if (req.headers.origin !== undefined) return false
+  if (req.headers['sec-fetch-site'] !== undefined) return false
+  const { cookie } = req.headers
+  return cookie !== undefined && cookie !== ''
+}
+
+/**
  * The single admission gate every route calls first.
  * @param req - the incoming request.
- * @returns true when the request may reach the CLI.
+ * @returns true when the request may reach the CLI: loopback, and either
+ *   same-origin with this server or forwarded by the desktop shell.
  */
 export function isTrustedRequest(req: IncomingMessage): boolean {
-  return isLoopbackRequest(req) && isSameOriginRequest(req)
+  return isLoopbackRequest(req) && (isSameOriginRequest(req) || isDesktopShellRequest(req))
 }
 
 /**

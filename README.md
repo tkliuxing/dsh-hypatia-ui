@@ -162,6 +162,17 @@ be loopback **and** the request must be same-origin with the server's authority.
 A page on another origin fails the second check even from the same machine, and
 a bare `curl` — which sends neither `Origin` nor `Sec-Fetch-Site` — is refused.
 
+The desktop build cannot meet that second check: it serves the page from
+`dsh-app://app`, and its proxy deletes `Host`, `Origin`, `Sec-Fetch-Site` and
+`Cookie` before forwarding, then sets the Host's own session cookie. The
+forwarding `fetch` puts `Host` back from the target URL, so what actually
+arrives carries no browser marker — no `Origin`, no `Sec-Fetch-Site` — and that
+cookie. The plugin admits exactly that shape. No current browser can produce it,
+since every request one makes carries `Sec-Fetch-Site`; the loopback socket
+still bounds who can reach the port, and the cookie keeps a bare `curl` out.
+Verified against desktop build `0.2.1-rc.3`; see issue
+[#3](https://github.com/tkliuxing/dsh-hypatia-ui/issues/3).
+
 The retyped-name confirmation is re-checked on the Host, so a caller that skips
 the dialog is refused the same way the dialog refuses it. A bulk deletion is
 confirmed the same way, by the retyped record *count*: the Host deduplicates
